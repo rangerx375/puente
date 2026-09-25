@@ -202,7 +202,7 @@
         <td>${a.percent}%</td>
         <td>${a.passed ? "sí" : "no"}</td>
       </tr>`).join("");
-    const shown = lessons().filter((L, i) => i < d.openLessons || d.scores[L.id] || d.paper[L.id]);
+    const shown = lessons().filter((L, i) => (i < d.openLessons && !L.elective) || d.scores[L.id] || d.paper[L.id]);
     const lessonRows = shown.map((L) => {
       const sc = d.scores[L.id];
       const rv = d.scores[L.id + "#review"];
@@ -217,7 +217,7 @@
     return `
       <p class="kicker">${esc(st.class_name)}</p>
       <h1>${esc(st.first)} ${esc(st.last)}</h1>
-      <p class="lede">Lecciones abiertas: ${d.openLessons} de ${lessons().length} · Tiempo en lecciones: ${formatTime(totalTime)} · Última vez: ${when(st.last_seen)}</p>
+      <p class="lede">Lecciones abiertas: ${d.openLessons} de ${lessons().filter((L) => !L.elective).length} · Tiempo en lecciones: ${formatTime(totalTime)} · Última vez: ${when(st.last_seen)}</p>
       ${msg}
       <h2>Fuerzas y debilidades</h2>
       ${ui().masteryHtml(d.insights, { empty: "Todavía no ha respondido nada." })}
@@ -235,7 +235,7 @@
         <div class="assign-grid">
           ${lessons().map((L, i) => `
             <label class="check ${weakTopics.has(L.id) ? "weak" : ""}"><input type="checkbox" data-topic="${L.id}" ${weakTopics.has(L.id) ? "checked" : ""}>
-              ${L.level}.${L.num} ${L.title}${i >= d.openLessons ? " <small>(aún cerrada)</small>" : ""}
+              ${L.level}.${L.num} ${L.title}${i >= d.openLessons && !L.elective ? " <small>(aún cerrada)</small>" : ""}
             </label>`).join("")}
         </div>
         <div class="row wrap">

@@ -199,7 +199,7 @@ async function gradeSubmission(q, tx, user, body) {
     lessonId = String(body.lessonId || "");
     const li = bank.lessonIndex.get(lessonId);
     if (li == null) fail(400, "Lección desconocida.");
-    if (li >= L.openLessonCount(scoresBefore)) fail(403, "Esa lección todavía está cerrada.");
+    if (!book.lessons[li].elective && li >= L.openLessonCount(scoresBefore)) fail(403, "Esa lección todavía está cerrada.");
     pageIdx = int(body.page);
     const p = book.lessons[li].pages[pageIdx];
     const okType = source === "exercise" ? ["fill", "choose", "translate", "order"].includes(p?.type) : p?.type === source;

@@ -105,6 +105,22 @@ test("locked lessons can't be graded", async () => {
   assert.equal((await ana.post("grade", { source: "quiz", lessonId: "e100-02", page: pi, answers: {} })).status, 403);
 });
 
+test("the church chapter is open from day one and its practice stays in the chapter", async () => {
+  const eli = client();
+  await eli.post("student/login", { code, first: "Eli", last: "Soto", pin: "2468" });
+  const { pi, entries } = pageItems("fe-01", "quiz");
+  const r = await eli.post("grade", { source: "quiz", lessonId: "fe-01", page: pi, answers: answersFor(entries, "Eli", () => true) });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.passed, false);
+  const set = await eli.get(`practice/${r.data.newPractice}`);
+  assert.ok(set.data.items.every((ref) => bank.byRef.get(ref).topic === "fe-01"));
+  const ok = await eli.post("grade", { source: "quiz", lessonId: "fe-01", page: pi, answers: answersFor(entries, "Eli") });
+  assert.equal(ok.data.percent, 100);
+  // Passing the chapter doesn't open lesson 2.
+  const { pi: p2 } = pageItems("e100-02", "quiz");
+  assert.equal((await eli.post("grade", { source: "quiz", lessonId: "e100-02", page: p2, answers: {} })).status, 403);
+});
+
 test("a failed exam records responses and creates an automatic practice set on the weak spots", async () => {
   const { pi, entries } = pageItems("e100-01", "quiz");
   const r = await ana.post("grade", { source: "quiz", lessonId: "e100-01", page: pi, answers: answersFor(entries, "Ána", (i) => i % 2 === 0) });

@@ -16,6 +16,12 @@ window.PUENTE_BOOK = {
   ],
   "levels": [
     {
+      "id": "FE",
+      "code": "IGLESIA",
+      "title": "Inglés para la iglesia",
+      "blurb": "Palabras de la Biblia y del culto. Abierto desde el primer día; no bloquea las demás lecciones."
+    },
+    {
       "id": 100,
       "code": "ENGL 100",
       "title": "Fundamentos",
@@ -48123,6 +48129,2854 @@ window.PUENTE_BOOK = {
         {
           "en": "Wrong",
           "es": "—",
+          "kind": "content"
+        }
+      ]
+    },
+    {
+      "id": "fe-01",
+      "level": "FE",
+      "num": 1,
+      "elective": true,
+      "title": "Palabras de la fe",
+      "titleEn": "Church and Bible words",
+      "goal": "Nombrar lo que ves y oyes en la iglesia, y leer una cita en voz alta: John 3:16.",
+      "pages": [
+        {
+          "type": "open",
+          "kicker": "Capítulo especial · Iglesia",
+          "heading": "Palabras de la fe",
+          "body": "El inglés que se oye en la iglesia: Dios, la Biblia, la oración, el culto. Y cómo se lee una cita en voz alta: John 3:16. Este capítulo está abierto desde el primer día y no bloquea las otras lecciones. Usa frases con BE: God is love.",
+          "objectives": [
+            "Nombrar a Dios, a Jesús y al Espíritu Santo",
+            "Las palabras del culto: prayer, worship, sermon, the Lord's Supper",
+            "Leer una cita bíblica en voz alta",
+            "Ocho versículos cortos en inglés (NIV) con la Reina-Valera al lado"
+          ]
+        },
+        {
+          "type": "vocab",
+          "num": "F.1",
+          "heading": "Léxico de la iglesia",
+          "note": "Pulsa el inglés para oírlo. Ojo: prayer (oración) suena /prɛr/; pray (orar) suena /preɪ/.",
+          "items": [
+            {
+              "en": "God",
+              "es": "Dios",
+              "ipa": "/ɡɑd/"
+            },
+            {
+              "en": "Jesus Christ",
+              "es": "Jesucristo",
+              "ipa": "/ˈdʒizəs kraɪst/"
+            },
+            {
+              "en": "the Holy Spirit",
+              "es": "el Espíritu Santo",
+              "ipa": "/ðə ˈhoʊli ˈspɪrɪt/"
+            },
+            {
+              "en": "the Lord",
+              "es": "el Señor",
+              "ipa": "/ðə lɔrd/"
+            },
+            {
+              "en": "the Bible",
+              "es": "la Biblia",
+              "ipa": "/ðə ˈbaɪbəl/"
+            },
+            {
+              "en": "the Word of God",
+              "es": "la Palabra de Dios",
+              "ipa": "/ðə wɝd əv ɡɑd/"
+            },
+            {
+              "en": "church",
+              "es": "la iglesia",
+              "ipa": "/tʃɝtʃ/"
+            },
+            {
+              "en": "the worship service",
+              "es": "el culto",
+              "ipa": "/ðə ˈwɝʃɪp ˈsɝvɪs/"
+            },
+            {
+              "en": "to pray",
+              "es": "orar",
+              "ipa": "/tə preɪ/"
+            },
+            {
+              "en": "a prayer",
+              "es": "una oración (a Dios)",
+              "ipa": "/ə prɛr/"
+            },
+            {
+              "en": "to worship",
+              "es": "adorar",
+              "ipa": "/tə ˈwɝʃɪp/"
+            },
+            {
+              "en": "the pastor",
+              "es": "el pastor",
+              "ipa": "/ðə ˈpæstɚ/"
+            },
+            {
+              "en": "the sermon",
+              "es": "el sermón, la predicación",
+              "ipa": "/ðə ˈsɝmən/"
+            },
+            {
+              "en": "faith",
+              "es": "la fe",
+              "ipa": "/feɪθ/"
+            },
+            {
+              "en": "grace",
+              "es": "la gracia",
+              "ipa": "/ɡreɪs/"
+            },
+            {
+              "en": "sin",
+              "es": "el pecado",
+              "ipa": "/sɪn/"
+            },
+            {
+              "en": "to forgive",
+              "es": "perdonar",
+              "ipa": "/tə fɚˈɡɪv/"
+            },
+            {
+              "en": "salvation",
+              "es": "la salvación",
+              "ipa": "/sælˈveɪʃən/"
+            },
+            {
+              "en": "the gospel",
+              "es": "el evangelio",
+              "ipa": "/ðə ˈɡɑspəl/"
+            },
+            {
+              "en": "the cross",
+              "es": "la cruz",
+              "ipa": "/ðə krɔs/"
+            },
+            {
+              "en": "baptism",
+              "es": "el bautismo",
+              "ipa": "/ˈbæptɪzəm/"
+            },
+            {
+              "en": "the Lord's Supper",
+              "es": "la Santa Cena",
+              "ipa": "/ðə lɔrdz ˈsʌpɚ/"
+            },
+            {
+              "en": "a verse",
+              "es": "un versículo",
+              "ipa": "/ə vɝs/"
+            },
+            {
+              "en": "a chapter",
+              "es": "un capítulo",
+              "ipa": "/ə ˈtʃæptɚ/"
+            },
+            {
+              "en": "heaven",
+              "es": "el cielo (donde está Dios)",
+              "ipa": "/ˈhɛvən/"
+            },
+            {
+              "en": "a blessing",
+              "es": "una bendición",
+              "ipa": "/ə ˈblɛsɪŋ/"
+            },
+            {
+              "en": "a disciple",
+              "es": "un discípulo",
+              "ipa": "/ə dɪˈsaɪpəl/"
+            },
+            {
+              "en": "amen",
+              "es": "amén",
+              "ipa": "/ˌeɪˈmɛn/"
+            }
+          ]
+        },
+        {
+          "type": "wordlist",
+          "num": "F.0",
+          "heading": "Todas las palabras inglesas de este capítulo",
+          "note": "Lo que tienen que saber para el examen escrito de clase. Pulsa para oír.",
+          "items": [
+            {
+              "en": "a",
+              "es": "un, una",
+              "kind": "structure"
+            },
+            {
+              "en": "after",
+              "es": "después (de)",
+              "kind": "structure"
+            },
+            {
+              "en": "all",
+              "es": "todo, todos",
+              "kind": "structure"
+            },
+            {
+              "en": "am",
+              "es": "soy, estoy (con I)",
+              "kind": "structure"
+            },
+            {
+              "en": "amen",
+              "es": "amén",
+              "kind": "content"
+            },
+            {
+              "en": "and",
+              "es": "y",
+              "kind": "structure"
+            },
+            {
+              "en": "angel",
+              "es": "ángel",
+              "kind": "content"
+            },
+            {
+              "en": "are",
+              "es": "son, están (con you, we, they)",
+              "kind": "structure"
+            },
+            {
+              "en": "as",
+              "es": "como",
+              "kind": "structure"
+            },
+            {
+              "en": "at",
+              "es": "a, en (hora, lugar)",
+              "kind": "structure"
+            },
+            {
+              "en": "baptism",
+              "es": "bautismo",
+              "kind": "content"
+            },
+            {
+              "en": "baptist",
+              "es": "bautista",
+              "kind": "content"
+            },
+            {
+              "en": "bath",
+              "es": "baño",
+              "kind": "content"
+            },
+            {
+              "en": "be",
+              "es": "ser, estar",
+              "kind": "structure"
+            },
+            {
+              "en": "because",
+              "es": "porque",
+              "kind": "structure"
+            },
+            {
+              "en": "beginning",
+              "es": "principio",
+              "kind": "content"
+            },
+            {
+              "en": "believes",
+              "es": "cree",
+              "kind": "content"
+            },
+            {
+              "en": "Bible",
+              "es": "Biblia",
+              "kind": "content"
+            },
+            {
+              "en": "bless",
+              "es": "bendecir",
+              "kind": "content"
+            },
+            {
+              "en": "blessed",
+              "es": "bendecido, bendito",
+              "kind": "content"
+            },
+            {
+              "en": "blessing",
+              "es": "bendición",
+              "kind": "content"
+            },
+            {
+              "en": "but",
+              "es": "pero, sino",
+              "kind": "structure"
+            },
+            {
+              "en": "can",
+              "es": "puedo, puede",
+              "kind": "structure"
+            },
+            {
+              "en": "ceiling",
+              "es": "techo (de una sala)",
+              "kind": "content"
+            },
+            {
+              "en": "chapter",
+              "es": "capítulo",
+              "kind": "content"
+            },
+            {
+              "en": "Christ",
+              "es": "Cristo",
+              "kind": "content"
+            },
+            {
+              "en": "church",
+              "es": "iglesia",
+              "kind": "content"
+            },
+            {
+              "en": "class",
+              "es": "clase",
+              "kind": "content"
+            },
+            {
+              "en": "colon",
+              "es": "dos puntos (:)",
+              "kind": "content"
+            },
+            {
+              "en": "comes",
+              "es": "viene",
+              "kind": "content"
+            },
+            {
+              "en": "created",
+              "es": "creó",
+              "kind": "content"
+            },
+            {
+              "en": "cross",
+              "es": "cruz",
+              "kind": "content"
+            },
+            {
+              "en": "crows",
+              "es": "cuervos",
+              "kind": "content"
+            },
+            {
+              "en": "cruise",
+              "es": "crucero",
+              "kind": "content"
+            },
+            {
+              "en": "cult",
+              "es": "secta (¡no es culto!)",
+              "kind": "content"
+            },
+            {
+              "en": "culture",
+              "es": "cultura",
+              "kind": "content"
+            },
+            {
+              "en": "day",
+              "es": "día",
+              "kind": "content"
+            },
+            {
+              "en": "dinner",
+              "es": "cena",
+              "kind": "content"
+            },
+            {
+              "en": "disciple",
+              "es": "discípulo",
+              "kind": "content"
+            },
+            {
+              "en": "disciples",
+              "es": "discípulos",
+              "kind": "content"
+            },
+            {
+              "en": "discipline",
+              "es": "disciplina",
+              "kind": "content"
+            },
+            {
+              "en": "do",
+              "es": "hacer",
+              "kind": "structure"
+            },
+            {
+              "en": "does",
+              "es": "hace; auxiliar con he/she/it",
+              "kind": "structure"
+            },
+            {
+              "en": "earth",
+              "es": "tierra",
+              "kind": "content"
+            },
+            {
+              "en": "eight",
+              "es": "ocho",
+              "kind": "content"
+            },
+            {
+              "en": "end",
+              "es": "final",
+              "kind": "content"
+            },
+            {
+              "en": "eternal",
+              "es": "eterno, eterna",
+              "kind": "content"
+            },
+            {
+              "en": "evangel",
+              "es": "evangelio (forma antigua; se dice gospel)",
+              "kind": "content"
+            },
+            {
+              "en": "every",
+              "es": "cada, todos los",
+              "kind": "content"
+            },
+            {
+              "en": "except",
+              "es": "excepto, sino",
+              "kind": "structure"
+            },
+            {
+              "en": "faith",
+              "es": "fe",
+              "kind": "content"
+            },
+            {
+              "en": "Father",
+              "es": "padre",
+              "kind": "content"
+            },
+            {
+              "en": "feet",
+              "es": "pies",
+              "kind": "content"
+            },
+            {
+              "en": "First",
+              "es": "primero",
+              "kind": "content"
+            },
+            {
+              "en": "for",
+              "es": "para, porque",
+              "kind": "structure"
+            },
+            {
+              "en": "forget",
+              "es": "olvidar",
+              "kind": "content"
+            },
+            {
+              "en": "forgive",
+              "es": "perdonar",
+              "kind": "content"
+            },
+            {
+              "en": "four",
+              "es": "cuatro",
+              "kind": "content"
+            },
+            {
+              "en": "friend",
+              "es": "amigo, amiga",
+              "kind": "content"
+            },
+            {
+              "en": "gave",
+              "es": "dio",
+              "kind": "content"
+            },
+            {
+              "en": "Genesis",
+              "es": "Génesis",
+              "kind": "content"
+            },
+            {
+              "en": "give",
+              "es": "dar",
+              "kind": "content"
+            },
+            {
+              "en": "gives",
+              "es": "da",
+              "kind": "content"
+            },
+            {
+              "en": "God",
+              "es": "Dios",
+              "kind": "content"
+            },
+            {
+              "en": "Good",
+              "es": "bueno, buen",
+              "kind": "content"
+            },
+            {
+              "en": "gospel",
+              "es": "evangelio",
+              "kind": "content"
+            },
+            {
+              "en": "grace",
+              "es": "gracia (de Dios)",
+              "kind": "content"
+            },
+            {
+              "en": "grass",
+              "es": "césped, hierba",
+              "kind": "content"
+            },
+            {
+              "en": "have",
+              "es": "tener",
+              "kind": "content"
+            },
+            {
+              "en": "he",
+              "es": "él",
+              "kind": "structure"
+            },
+            {
+              "en": "heaven",
+              "es": "cielo (donde está Dios)",
+              "kind": "content"
+            },
+            {
+              "en": "heavens",
+              "es": "cielos",
+              "kind": "content"
+            },
+            {
+              "en": "here",
+              "es": "aquí",
+              "kind": "content"
+            },
+            {
+              "en": "him",
+              "es": "él, lo, le",
+              "kind": "structure"
+            },
+            {
+              "en": "his",
+              "es": "su (de él)",
+              "kind": "structure"
+            },
+            {
+              "en": "Holy",
+              "es": "santo, santa",
+              "kind": "content"
+            },
+            {
+              "en": "I",
+              "es": "yo",
+              "kind": "structure"
+            },
+            {
+              "en": "in",
+              "es": "en",
+              "kind": "structure"
+            },
+            {
+              "en": "is",
+              "es": "es, está",
+              "kind": "structure"
+            },
+            {
+              "en": "it",
+              "es": "ello; lo",
+              "kind": "structure"
+            },
+            {
+              "en": "Jesus",
+              "es": "Jesús",
+              "kind": "content"
+            },
+            {
+              "en": "John",
+              "es": "Juan",
+              "kind": "content"
+            },
+            {
+              "en": "know",
+              "es": "conocer, saber",
+              "kind": "content"
+            },
+            {
+              "en": "lack",
+              "es": "carecer, faltar",
+              "kind": "content"
+            },
+            {
+              "en": "lamp",
+              "es": "lámpara",
+              "kind": "content"
+            },
+            {
+              "en": "last",
+              "es": "último",
+              "kind": "content"
+            },
+            {
+              "en": "Let",
+              "es": "dejar; let us = -emos (let us pray = oremos)",
+              "kind": "structure"
+            },
+            {
+              "en": "life",
+              "es": "vida",
+              "kind": "content"
+            },
+            {
+              "en": "light",
+              "es": "luz",
+              "kind": "content"
+            },
+            {
+              "en": "line",
+              "es": "línea",
+              "kind": "content"
+            },
+            {
+              "en": "Lord",
+              "es": "Señor",
+              "kind": "content"
+            },
+            {
+              "en": "Lord's",
+              "es": "del Señor",
+              "kind": "content"
+            },
+            {
+              "en": "love",
+              "es": "amor; amar",
+              "kind": "content"
+            },
+            {
+              "en": "loved",
+              "es": "amó",
+              "kind": "content"
+            },
+            {
+              "en": "Matthew",
+              "es": "Mateo",
+              "kind": "content"
+            },
+            {
+              "en": "me",
+              "es": "me, mí",
+              "kind": "structure"
+            },
+            {
+              "en": "means",
+              "es": "significa",
+              "kind": "content"
+            },
+            {
+              "en": "morning",
+              "es": "mañana",
+              "kind": "content"
+            },
+            {
+              "en": "my",
+              "es": "mi, mis",
+              "kind": "structure"
+            },
+            {
+              "en": "neighbor",
+              "es": "prójimo, vecino",
+              "kind": "content"
+            },
+            {
+              "en": "No",
+              "es": "no, ningún",
+              "kind": "structure"
+            },
+            {
+              "en": "not",
+              "es": "no",
+              "kind": "structure"
+            },
+            {
+              "en": "nothing",
+              "es": "nada",
+              "kind": "content"
+            },
+            {
+              "en": "of",
+              "es": "de",
+              "kind": "structure"
+            },
+            {
+              "en": "on",
+              "es": "en, sobre; el (día)",
+              "kind": "structure"
+            },
+            {
+              "en": "one",
+              "es": "uno, una",
+              "kind": "structure"
+            },
+            {
+              "en": "only",
+              "es": "único, solo",
+              "kind": "structure"
+            },
+            {
+              "en": "Open",
+              "es": "abrir",
+              "kind": "content"
+            },
+            {
+              "en": "our",
+              "es": "nuestro, nuestra",
+              "kind": "structure"
+            },
+            {
+              "en": "pastor",
+              "es": "pastor",
+              "kind": "content"
+            },
+            {
+              "en": "path",
+              "es": "camino, sendero",
+              "kind": "content"
+            },
+            {
+              "en": "perish",
+              "es": "perecer, perderse",
+              "kind": "content"
+            },
+            {
+              "en": "Philippians",
+              "es": "Filipenses",
+              "kind": "content"
+            },
+            {
+              "en": "Please",
+              "es": "por favor",
+              "kind": "structure"
+            },
+            {
+              "en": "Praise",
+              "es": "alabar",
+              "kind": "content"
+            },
+            {
+              "en": "pray",
+              "es": "orar",
+              "kind": "content"
+            },
+            {
+              "en": "prayer",
+              "es": "oración (a Dios)",
+              "kind": "content"
+            },
+            {
+              "en": "preach",
+              "es": "predicar",
+              "kind": "content"
+            },
+            {
+              "en": "prey",
+              "es": "presa (animal cazado)",
+              "kind": "content"
+            },
+            {
+              "en": "Psalm",
+              "es": "salmo",
+              "kind": "content"
+            },
+            {
+              "en": "Psalms",
+              "es": "Salmos (el libro)",
+              "kind": "content"
+            },
+            {
+              "en": "read",
+              "es": "leer",
+              "kind": "content"
+            },
+            {
+              "en": "Romans",
+              "es": "Romanos",
+              "kind": "content"
+            },
+            {
+              "en": "room",
+              "es": "sala, cuarto",
+              "kind": "content"
+            },
+            {
+              "en": "Saint",
+              "es": "santo (persona)",
+              "kind": "content"
+            },
+            {
+              "en": "salvation",
+              "es": "salvación",
+              "kind": "content"
+            },
+            {
+              "en": "say",
+              "es": "decir",
+              "kind": "content"
+            },
+            {
+              "en": "sentence",
+              "es": "oración (gramatical)",
+              "kind": "content"
+            },
+            {
+              "en": "sermon",
+              "es": "sermón, predicación",
+              "kind": "content"
+            },
+            {
+              "en": "sermoning",
+              "es": "(no existe)",
+              "kind": "content"
+            },
+            {
+              "en": "service",
+              "es": "culto; servicio",
+              "kind": "content"
+            },
+            {
+              "en": "shall",
+              "es": "(futuro formal) no perecerá = shall not perish",
+              "kind": "structure"
+            },
+            {
+              "en": "shepherd",
+              "es": "pastor (de ovejas)",
+              "kind": "content"
+            },
+            {
+              "en": "sign",
+              "es": "señal, letrero",
+              "kind": "content"
+            },
+            {
+              "en": "sin",
+              "es": "pecado",
+              "kind": "content"
+            },
+            {
+              "en": "sing",
+              "es": "cantar",
+              "kind": "content"
+            },
+            {
+              "en": "sixteen",
+              "es": "dieciséis",
+              "kind": "content"
+            },
+            {
+              "en": "sixteenth",
+              "es": "decimosexto",
+              "kind": "content"
+            },
+            {
+              "en": "sky",
+              "es": "cielo (el azul, con nubes)",
+              "kind": "content"
+            },
+            {
+              "en": "so",
+              "es": "tanto, de tal manera; así que",
+              "kind": "structure"
+            },
+            {
+              "en": "Son",
+              "es": "hijo",
+              "kind": "content"
+            },
+            {
+              "en": "Spirit",
+              "es": "espíritu",
+              "kind": "content"
+            },
+            {
+              "en": "Spirits",
+              "es": "espíritus",
+              "kind": "content"
+            },
+            {
+              "en": "strength",
+              "es": "fuerza",
+              "kind": "content"
+            },
+            {
+              "en": "student",
+              "es": "estudiante",
+              "kind": "content"
+            },
+            {
+              "en": "study",
+              "es": "estudio",
+              "kind": "content"
+            },
+            {
+              "en": "Sunday",
+              "es": "domingo",
+              "kind": "content"
+            },
+            {
+              "en": "Supper",
+              "es": "cena",
+              "kind": "content"
+            },
+            {
+              "en": "ten",
+              "es": "diez",
+              "kind": "content"
+            },
+            {
+              "en": "Thank",
+              "es": "agradecer; thank you = gracias",
+              "kind": "content"
+            },
+            {
+              "en": "thanks",
+              "es": "gracias",
+              "kind": "content"
+            },
+            {
+              "en": "that",
+              "es": "que; ese, esa",
+              "kind": "structure"
+            },
+            {
+              "en": "the",
+              "es": "el, la, los, las",
+              "kind": "structure"
+            },
+            {
+              "en": "third",
+              "es": "tercero",
+              "kind": "content"
+            },
+            {
+              "en": "thirteen",
+              "es": "trece",
+              "kind": "content"
+            },
+            {
+              "en": "this",
+              "es": "esto, este, esta",
+              "kind": "structure"
+            },
+            {
+              "en": "three",
+              "es": "tres",
+              "kind": "content"
+            },
+            {
+              "en": "through",
+              "es": "por medio de",
+              "kind": "structure"
+            },
+            {
+              "en": "to",
+              "es": "a, hacia; marca del infinitivo",
+              "kind": "structure"
+            },
+            {
+              "en": "truth",
+              "es": "verdad",
+              "kind": "content"
+            },
+            {
+              "en": "twenty",
+              "es": "veinte",
+              "kind": "content"
+            },
+            {
+              "en": "two",
+              "es": "dos",
+              "kind": "content"
+            },
+            {
+              "en": "us",
+              "es": "nos, nosotros",
+              "kind": "structure"
+            },
+            {
+              "en": "verse",
+              "es": "versículo",
+              "kind": "content"
+            },
+            {
+              "en": "versicle",
+              "es": "(no se usa; se dice verse)",
+              "kind": "content"
+            },
+            {
+              "en": "way",
+              "es": "camino",
+              "kind": "content"
+            },
+            {
+              "en": "We",
+              "es": "nosotros, nosotras",
+              "kind": "structure"
+            },
+            {
+              "en": "Welcome",
+              "es": "bienvenido",
+              "kind": "content"
+            },
+            {
+              "en": "Where",
+              "es": "dónde",
+              "kind": "structure"
+            },
+            {
+              "en": "who",
+              "es": "que, quien",
+              "kind": "structure"
+            },
+            {
+              "en": "whoever",
+              "es": "todo aquel que",
+              "kind": "structure"
+            },
+            {
+              "en": "Word",
+              "es": "palabra",
+              "kind": "content"
+            },
+            {
+              "en": "world",
+              "es": "mundo",
+              "kind": "content"
+            },
+            {
+              "en": "worship",
+              "es": "adorar; adoración",
+              "kind": "content"
+            },
+            {
+              "en": "Yes",
+              "es": "sí",
+              "kind": "structure"
+            },
+            {
+              "en": "you",
+              "es": "tú, usted, ustedes; te, le",
+              "kind": "structure"
+            },
+            {
+              "en": "your",
+              "es": "tu, su (de usted)",
+              "kind": "structure"
+            },
+            {
+              "en": "yourself",
+              "es": "ti mismo, usted mismo",
+              "kind": "content"
+            }
+          ]
+        },
+        {
+          "type": "grammar",
+          "num": "F.2",
+          "heading": "Mayúsculas: God, the Bible, Jesus",
+          "rule": "Los nombres de Dios y de la Biblia van con mayúscula: God, the Lord, Jesus, the Holy Spirit, the Bible. También los días: Sunday. Pero church, prayer, faith y sin van en minúscula dentro de la frase.",
+          "table": {
+            "headers": [
+              "Mayúscula",
+              "Minúscula"
+            ],
+            "rows": [
+              [
+                "God",
+                "church"
+              ],
+              [
+                "the Lord",
+                "prayer"
+              ],
+              [
+                "Jesus Christ",
+                "faith"
+              ],
+              [
+                "the Holy Spirit",
+                "sin"
+              ],
+              [
+                "the Bible",
+                "a verse"
+              ],
+              [
+                "Sunday",
+                "the pastor"
+              ]
+            ]
+          },
+          "examples": [
+            {
+              "en": "God is love.",
+              "es": "Dios es amor."
+            },
+            {
+              "en": "The Bible is the Word of God.",
+              "es": "La Biblia es la Palabra de Dios."
+            },
+            {
+              "en": "We pray in church on Sunday.",
+              "es": "Oramos en la iglesia el domingo."
+            },
+            {
+              "en": "Jesus is the Son of God.",
+              "es": "Jesús es el Hijo de Dios."
+            },
+            {
+              "en": "The pastor is my friend.",
+              "es": "El pastor es mi amigo."
+            }
+          ]
+        },
+        {
+          "type": "grammar",
+          "num": "F.3",
+          "heading": "Cómo se lee una cita: John 3:16",
+          "rule": "Primero el libro, luego el capítulo, luego el versículo. Los dos puntos no se leen: John 3:16 se dice “John three sixteen”. En el culto también se oye la forma larga: “John, chapter three, verse sixteen”. Un 1 delante del libro se lee first: 1 John = “First John”. Un salmo es a psalm (la p no suena: /sɑm/).",
+          "table": {
+            "headers": [
+              "Escrito",
+              "Se dice"
+            ],
+            "rows": [
+              [
+                "John 3:16",
+                "John three sixteen"
+              ],
+              [
+                "Genesis 1:1",
+                "Genesis one one"
+              ],
+              [
+                "Psalm 23:1",
+                "Psalm twenty-three, verse one"
+              ],
+              [
+                "1 John 4:8",
+                "First John four eight"
+              ],
+              [
+                "Romans 3:23",
+                "Romans three twenty-three"
+              ],
+              [
+                "Philippians 4:13",
+                "Philippians four thirteen"
+              ]
+            ]
+          },
+          "examples": [
+            {
+              "en": "Open your Bible to John, chapter three.",
+              "es": "Abran su Biblia en Juan, capítulo tres."
+            },
+            {
+              "en": "Please read verse sixteen.",
+              "es": "Por favor, lee el versículo dieciséis."
+            },
+            {
+              "en": "Let us pray.",
+              "es": "Oremos."
+            },
+            {
+              "en": "God bless you.",
+              "es": "Dios te bendiga."
+            },
+            {
+              "en": "Praise the Lord!",
+              "es": "¡Gloria a Dios!"
+            }
+          ]
+        },
+        {
+          "type": "grammar",
+          "num": "F.4",
+          "heading": "Versículos para memorizar",
+          "rule": "Ocho versículos cortos de la NIV. Pulsa el inglés para oírlo; al lado va el mismo versículo en la Reina-Valera 1960. En la NIV, the LORD en mayúsculas es el nombre de Dios (en la Reina-Valera, Jehová).",
+          "table": {
+            "headers": [
+              "Cita",
+              "Palabra clave"
+            ],
+            "rows": [
+              [
+                "Genesis 1:1",
+                "created · creó"
+              ],
+              [
+                "Psalm 23:1",
+                "shepherd · pastor"
+              ],
+              [
+                "Psalm 119:105",
+                "lamp · lámpara"
+              ],
+              [
+                "Matthew 22:39",
+                "neighbor · prójimo"
+              ],
+              [
+                "John 3:16",
+                "believes · cree"
+              ],
+              [
+                "John 14:6",
+                "the way · el camino"
+              ],
+              [
+                "Philippians 4:13",
+                "strength · fuerza"
+              ],
+              [
+                "1 John 4:8",
+                "love · amor"
+              ]
+            ]
+          },
+          "examples": [
+            {
+              "en": "In the beginning God created the heavens and the earth.",
+              "es": "Génesis 1:1 · En el principio creó Dios los cielos y la tierra."
+            },
+            {
+              "en": "The LORD is my shepherd, I lack nothing.",
+              "es": "Salmo 23:1 · Jehová es mi pastor; nada me faltará."
+            },
+            {
+              "en": "Your word is a lamp for my feet, a light on my path.",
+              "es": "Salmo 119:105 · Lámpara es a mis pies tu palabra, y lumbrera a mi camino."
+            },
+            {
+              "en": "Love your neighbor as yourself.",
+              "es": "Mateo 22:39 · Amarás a tu prójimo como a ti mismo."
+            },
+            {
+              "en": "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",
+              "es": "Juan 3:16 · Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna."
+            },
+            {
+              "en": "I am the way and the truth and the life. No one comes to the Father except through me.",
+              "es": "Juan 14:6 · Yo soy el camino, y la verdad, y la vida; nadie viene al Padre, sino por mí."
+            },
+            {
+              "en": "I can do all this through him who gives me strength.",
+              "es": "Filipenses 4:13 · Todo lo puedo en Cristo que me fortalece."
+            },
+            {
+              "en": "Whoever does not love does not know God, because God is love.",
+              "es": "1 Juan 4:8 · El que no ama, no ha conocido a Dios; porque Dios es amor."
+            }
+          ],
+          "note": "Textos bíblicos: Scripture quotations taken from The Holy Bible, New International Version® NIV®. Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc.™ Used by permission. All rights reserved worldwide. · Texto bíblico tomado de la Santa Biblia, versión Reina-Valera 1960 © Sociedades Bíblicas en América Latina, 1960; renovado © Sociedades Bíblicas Unidas, 1988. Utilizado con permiso."
+        },
+        {
+          "type": "dialogue",
+          "num": "F.5",
+          "heading": "El domingo, en la puerta de la iglesia",
+          "lines": [
+            {
+              "who": "Ujier",
+              "en": "Good morning! Welcome to our church.",
+              "es": "¡Buenos días! Bienvenido a nuestra iglesia."
+            },
+            {
+              "who": "you",
+              "en": "Thank you. Is the worship service at ten?",
+              "es": "Gracias. ¿El culto es a las diez?"
+            },
+            {
+              "who": "Ujier",
+              "en": "Yes, it is. The pastor is here.",
+              "es": "Sí. El pastor está aquí."
+            },
+            {
+              "who": "you",
+              "en": "Where is the Bible study?",
+              "es": "¿Dónde es el estudio bíblico?"
+            },
+            {
+              "who": "Ujier",
+              "en": "It is in room two, after the service.",
+              "es": "Es en la sala dos, después del culto."
+            },
+            {
+              "who": "you",
+              "en": "Thank you. God bless you!",
+              "es": "Gracias. ¡Dios le bendiga!"
+            }
+          ]
+        },
+        {
+          "type": "choose",
+          "num": "F.6",
+          "heading": "Elige",
+          "instruction": "Una sola respuesta es correcta. Lee la consigna completa.",
+          "items": [
+            {
+              "prompt": "La Santa Cena",
+              "options": [
+                "the Lord's Supper",
+                "the last dinner",
+                "the holy dinner"
+              ],
+              "answer": 0
+            },
+            {
+              "prompt": "Orar (el verbo)",
+              "options": [
+                "prayer",
+                "pray",
+                "prey"
+              ],
+              "answer": 1
+            },
+            {
+              "prompt": "Una oración (lo que le dices a Dios)",
+              "options": [
+                "a pray",
+                "a prayer",
+                "a sentence"
+              ],
+              "answer": 1
+            },
+            {
+              "prompt": "El culto del domingo (ojo: cult es una secta)",
+              "options": [
+                "the cult",
+                "the worship service",
+                "the culture"
+              ],
+              "answer": 1
+            },
+            {
+              "prompt": "¿Cuál está bien escrita?",
+              "options": [
+                "god is love.",
+                "God is love.",
+                "God is Love."
+              ],
+              "answer": 1
+            },
+            {
+              "prompt": "¿Cómo se lee John 3:16?",
+              "options": [
+                "John three sixteen",
+                "John three colon sixteen",
+                "John third sixteenth"
+              ],
+              "answer": 0
+            },
+            {
+              "prompt": "¿Cómo se lee 1 John 4:8?",
+              "options": [
+                "One John four eight",
+                "First John four eight",
+                "John one four eight"
+              ],
+              "answer": 1
+            },
+            {
+              "prompt": "La predicación del pastor",
+              "options": [
+                "the sermon",
+                "the preach",
+                "the sermoning"
+              ],
+              "answer": 0
+            },
+            {
+              "prompt": "Un versículo",
+              "options": [
+                "a verse",
+                "a versicle",
+                "a line"
+              ],
+              "answer": 0
+            }
+          ]
+        },
+        {
+          "type": "fill",
+          "num": "F.7",
+          "heading": "Completa",
+          "instruction": "Escribe la palabra que falta. Las mayúsculas no cuentan para la nota, pero escríbelas bien.",
+          "items": [
+            {
+              "before": "The",
+              "after": "is the Word of God.",
+              "answer": "Bible",
+              "answers": [
+                "Bible"
+              ]
+            },
+            {
+              "before": "Jesus is the Son of",
+              "after": ".",
+              "answer": "God",
+              "answers": [
+                "God"
+              ]
+            },
+            {
+              "before": "We",
+              "after": "to God every day.",
+              "answer": "pray",
+              "answers": [
+                "pray"
+              ]
+            },
+            {
+              "before": "The",
+              "after": "is my shepherd.",
+              "answer": "LORD",
+              "answers": [
+                "LORD"
+              ]
+            },
+            {
+              "before": "Let us",
+              "after": ".",
+              "answer": "pray",
+              "answers": [
+                "pray"
+              ]
+            },
+            {
+              "before": "God",
+              "after": "you!",
+              "answer": "bless",
+              "answers": [
+                "bless"
+              ]
+            },
+            {
+              "before": "John 3:16 is a",
+              "after": "in the Bible.",
+              "answer": "verse",
+              "answers": [
+                "verse"
+              ]
+            },
+            {
+              "before": "The worship",
+              "after": "is on Sunday.",
+              "answer": "service",
+              "answers": [
+                "service"
+              ]
+            },
+            {
+              "before": "God is",
+              "after": ".",
+              "answer": "love",
+              "answers": [
+                "love"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "translate",
+          "num": "F.8",
+          "heading": "Traduce",
+          "instruction": "Escribe una frase inglesa natural. Se aceptan contracciones.",
+          "items": [
+            {
+              "es": "Dios es amor.",
+              "answers": [
+                "God is love"
+              ]
+            },
+            {
+              "es": "La Biblia es la Palabra de Dios.",
+              "answers": [
+                "The Bible is the Word of God",
+                "The Bible is God's Word"
+              ]
+            },
+            {
+              "es": "Jesús es el Hijo de Dios.",
+              "answers": [
+                "Jesus is the Son of God",
+                "Jesus is God's Son"
+              ]
+            },
+            {
+              "es": "Oremos.",
+              "answers": [
+                "Let us pray",
+                "Let's pray"
+              ]
+            },
+            {
+              "es": "El culto es el domingo.",
+              "answers": [
+                "The worship service is on Sunday",
+                "The service is on Sunday",
+                "The worship service is Sunday",
+                "The service is Sunday",
+                "Church is on Sunday"
+              ]
+            },
+            {
+              "es": "El pastor está en la iglesia.",
+              "answers": [
+                "The pastor is in the church",
+                "The pastor is at church",
+                "The pastor is in church",
+                "The pastor is at the church"
+              ]
+            },
+            {
+              "es": "Dios te bendiga.",
+              "answers": [
+                "God bless you",
+                "May God bless you"
+              ]
+            },
+            {
+              "es": "Somos discípulos de Jesús.",
+              "answers": [
+                "We are disciples of Jesus",
+                "We're disciples of Jesus",
+                "We are Jesus' disciples",
+                "We are Jesus's disciples"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "order",
+          "num": "F.9",
+          "heading": "Arma la frase",
+          "items": [
+            {
+              "words": [
+                "The",
+                "LORD",
+                "is",
+                "my",
+                "shepherd"
+              ],
+              "answer": "The LORD is my shepherd"
+            },
+            {
+              "words": [
+                "God",
+                "is",
+                "love"
+              ],
+              "answer": "God is love"
+            },
+            {
+              "words": [
+                "Let",
+                "us",
+                "pray"
+              ],
+              "answer": "Let us pray"
+            },
+            {
+              "words": [
+                "Jesus",
+                "is",
+                "the",
+                "way"
+              ],
+              "answer": "Jesus is the way"
+            },
+            {
+              "words": [
+                "The",
+                "Bible",
+                "is",
+                "the",
+                "Word",
+                "of",
+                "God"
+              ],
+              "answer": "The Bible is the Word of God"
+            }
+          ]
+        },
+        {
+          "type": "quiz",
+          "num": "F.E",
+          "heading": "Examen · Palabras de la fe",
+          "instruction": "Una pregunta cada vez. Siguiente no corrige. Al final entregas. 80% para aprobar. Este capítulo no bloquea ninguna lección.",
+          "items": [
+            {
+              "prompt": "El Espíritu Santo",
+              "options": [
+                "the Holy Spirit",
+                "the Saint Spirit",
+                "the Holy Spirits"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "Perdonar",
+              "options": [
+                "to forget",
+                "to forgive",
+                "to give"
+              ],
+              "answer": 1,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "El pecado",
+              "options": [
+                "sin",
+                "sing",
+                "sign"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "¿Cómo se lee Psalm 23:1?",
+              "options": [
+                "Psalm twenty-three, verse one",
+                "Psalm two three one",
+                "Psalms twenty-three one"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "before": "We",
+              "after": "God on Sunday.",
+              "answer": "worship",
+              "answers": [
+                "worship",
+                "praise"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "before": "The",
+              "after": "is on Sunday at ten.",
+              "answer": "service",
+              "answers": [
+                "service"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "before": "Jesus is the way and the truth and the",
+              "after": ".",
+              "answer": "life",
+              "answers": [
+                "life"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "es": "La fe",
+              "answers": [
+                "faith",
+                "the faith"
+              ],
+              "kind": "translate",
+              "from": "fe-01"
+            },
+            {
+              "es": "El pastor es mi amigo.",
+              "answers": [
+                "The pastor is my friend",
+                "The pastor's my friend"
+              ],
+              "kind": "translate",
+              "from": "fe-01"
+            },
+            {
+              "es": "Oramos en la iglesia.",
+              "answers": [
+                "We pray in church",
+                "We pray at church",
+                "We pray in the church",
+                "We pray at the church"
+              ],
+              "kind": "translate",
+              "from": "fe-01"
+            },
+            {
+              "words": [
+                "Your",
+                "word",
+                "is",
+                "a",
+                "lamp"
+              ],
+              "answer": "Your word is a lamp",
+              "kind": "order",
+              "from": "fe-01"
+            },
+            {
+              "words": [
+                "I",
+                "can",
+                "do",
+                "all",
+                "this"
+              ],
+              "answer": "I can do all this",
+              "kind": "order",
+              "from": "fe-01"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "num": "F.R",
+          "heading": "Repaso del capítulo · 20 preguntas",
+          "instruction": "Veinte preguntas de todo el capítulo, versículos incluidos. Siguiente no corrige. 80% para aprobar.",
+          "items": [
+            {
+              "prompt": "La cruz",
+              "options": [
+                "the cross",
+                "the crows",
+                "the cruise"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "El bautismo",
+              "options": [
+                "baptism",
+                "baptist",
+                "bath"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "La gracia (de Dios)",
+              "options": [
+                "grace",
+                "grass",
+                "thanks"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "El evangelio",
+              "options": [
+                "the gospel",
+                "the angel",
+                "the evangel"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "El cielo (donde está Dios)",
+              "options": [
+                "heaven",
+                "sky",
+                "ceiling"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "Una bendición",
+              "options": [
+                "a blessing",
+                "a blessed",
+                "a bless"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "Un discípulo",
+              "options": [
+                "a disciple",
+                "a discipline",
+                "a student of"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "¿Cuál está bien escrita?",
+              "options": [
+                "We pray in Church.",
+                "we pray in church.",
+                "We pray in church."
+              ],
+              "answer": 2,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "El culto (la reunión del domingo)",
+              "options": [
+                "the cult",
+                "the worship service",
+                "the class"
+              ],
+              "answer": 1,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "prompt": "¿Cómo se lee Romans 3:23?",
+              "options": [
+                "Romans three twenty-three",
+                "Romans third twenty-third",
+                "Romans three colon twenty-three"
+              ],
+              "answer": 0,
+              "kind": "choose",
+              "from": "fe-01"
+            },
+            {
+              "before": "In the beginning God created the heavens and the",
+              "after": ".",
+              "answer": "earth",
+              "answers": [
+                "earth"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "before": "Love your",
+              "after": "as yourself.",
+              "answer": "neighbor",
+              "answers": [
+                "neighbor",
+                "neighbour"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "before": "For God so loved the",
+              "after": "…",
+              "answer": "world",
+              "answers": [
+                "world"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "before": "The LORD is my",
+              "after": ", I lack nothing.",
+              "answer": "shepherd",
+              "answers": [
+                "shepherd"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "before": "Amen means “so be it.” We say",
+              "after": "at the end of a prayer.",
+              "answer": "amen",
+              "answers": [
+                "amen"
+              ],
+              "kind": "fill",
+              "from": "fe-01"
+            },
+            {
+              "es": "La salvación",
+              "answers": [
+                "salvation"
+              ],
+              "kind": "translate",
+              "from": "fe-01"
+            },
+            {
+              "es": "Jesucristo",
+              "answers": [
+                "Jesus Christ"
+              ],
+              "kind": "translate",
+              "from": "fe-01"
+            },
+            {
+              "es": "La Santa Cena",
+              "answers": [
+                "the Lord's Supper",
+                "Lord's Supper",
+                "communion",
+                "Holy Communion"
+              ],
+              "kind": "translate",
+              "from": "fe-01"
+            },
+            {
+              "words": [
+                "God",
+                "created",
+                "the",
+                "heavens"
+              ],
+              "answer": "God created the heavens",
+              "kind": "order",
+              "from": "fe-01"
+            },
+            {
+              "words": [
+                "Jesus",
+                "is",
+                "the",
+                "Son",
+                "of",
+                "God"
+              ],
+              "answer": "Jesus is the Son of God",
+              "kind": "order",
+              "from": "fe-01"
+            }
+          ]
+        }
+      ],
+      "wordlist": [
+        {
+          "en": "a",
+          "es": "un, una",
+          "kind": "structure"
+        },
+        {
+          "en": "after",
+          "es": "después (de)",
+          "kind": "structure"
+        },
+        {
+          "en": "all",
+          "es": "todo, todos",
+          "kind": "structure"
+        },
+        {
+          "en": "am",
+          "es": "soy, estoy (con I)",
+          "kind": "structure"
+        },
+        {
+          "en": "amen",
+          "es": "amén",
+          "kind": "content"
+        },
+        {
+          "en": "and",
+          "es": "y",
+          "kind": "structure"
+        },
+        {
+          "en": "angel",
+          "es": "ángel",
+          "kind": "content"
+        },
+        {
+          "en": "are",
+          "es": "son, están (con you, we, they)",
+          "kind": "structure"
+        },
+        {
+          "en": "as",
+          "es": "como",
+          "kind": "structure"
+        },
+        {
+          "en": "at",
+          "es": "a, en (hora, lugar)",
+          "kind": "structure"
+        },
+        {
+          "en": "baptism",
+          "es": "bautismo",
+          "kind": "content"
+        },
+        {
+          "en": "baptist",
+          "es": "bautista",
+          "kind": "content"
+        },
+        {
+          "en": "bath",
+          "es": "baño",
+          "kind": "content"
+        },
+        {
+          "en": "be",
+          "es": "ser, estar",
+          "kind": "structure"
+        },
+        {
+          "en": "because",
+          "es": "porque",
+          "kind": "structure"
+        },
+        {
+          "en": "beginning",
+          "es": "principio",
+          "kind": "content"
+        },
+        {
+          "en": "believes",
+          "es": "cree",
+          "kind": "content"
+        },
+        {
+          "en": "Bible",
+          "es": "Biblia",
+          "kind": "content"
+        },
+        {
+          "en": "bless",
+          "es": "bendecir",
+          "kind": "content"
+        },
+        {
+          "en": "blessed",
+          "es": "bendecido, bendito",
+          "kind": "content"
+        },
+        {
+          "en": "blessing",
+          "es": "bendición",
+          "kind": "content"
+        },
+        {
+          "en": "but",
+          "es": "pero, sino",
+          "kind": "structure"
+        },
+        {
+          "en": "can",
+          "es": "puedo, puede",
+          "kind": "structure"
+        },
+        {
+          "en": "ceiling",
+          "es": "techo (de una sala)",
+          "kind": "content"
+        },
+        {
+          "en": "chapter",
+          "es": "capítulo",
+          "kind": "content"
+        },
+        {
+          "en": "Christ",
+          "es": "Cristo",
+          "kind": "content"
+        },
+        {
+          "en": "church",
+          "es": "iglesia",
+          "kind": "content"
+        },
+        {
+          "en": "class",
+          "es": "clase",
+          "kind": "content"
+        },
+        {
+          "en": "colon",
+          "es": "dos puntos (:)",
+          "kind": "content"
+        },
+        {
+          "en": "comes",
+          "es": "viene",
+          "kind": "content"
+        },
+        {
+          "en": "created",
+          "es": "creó",
+          "kind": "content"
+        },
+        {
+          "en": "cross",
+          "es": "cruz",
+          "kind": "content"
+        },
+        {
+          "en": "crows",
+          "es": "cuervos",
+          "kind": "content"
+        },
+        {
+          "en": "cruise",
+          "es": "crucero",
+          "kind": "content"
+        },
+        {
+          "en": "cult",
+          "es": "secta (¡no es culto!)",
+          "kind": "content"
+        },
+        {
+          "en": "culture",
+          "es": "cultura",
+          "kind": "content"
+        },
+        {
+          "en": "day",
+          "es": "día",
+          "kind": "content"
+        },
+        {
+          "en": "dinner",
+          "es": "cena",
+          "kind": "content"
+        },
+        {
+          "en": "disciple",
+          "es": "discípulo",
+          "kind": "content"
+        },
+        {
+          "en": "disciples",
+          "es": "discípulos",
+          "kind": "content"
+        },
+        {
+          "en": "discipline",
+          "es": "disciplina",
+          "kind": "content"
+        },
+        {
+          "en": "do",
+          "es": "hacer",
+          "kind": "structure"
+        },
+        {
+          "en": "does",
+          "es": "hace; auxiliar con he/she/it",
+          "kind": "structure"
+        },
+        {
+          "en": "earth",
+          "es": "tierra",
+          "kind": "content"
+        },
+        {
+          "en": "eight",
+          "es": "ocho",
+          "kind": "content"
+        },
+        {
+          "en": "end",
+          "es": "final",
+          "kind": "content"
+        },
+        {
+          "en": "eternal",
+          "es": "eterno, eterna",
+          "kind": "content"
+        },
+        {
+          "en": "evangel",
+          "es": "evangelio (forma antigua; se dice gospel)",
+          "kind": "content"
+        },
+        {
+          "en": "every",
+          "es": "cada, todos los",
+          "kind": "content"
+        },
+        {
+          "en": "except",
+          "es": "excepto, sino",
+          "kind": "structure"
+        },
+        {
+          "en": "faith",
+          "es": "fe",
+          "kind": "content"
+        },
+        {
+          "en": "Father",
+          "es": "padre",
+          "kind": "content"
+        },
+        {
+          "en": "feet",
+          "es": "pies",
+          "kind": "content"
+        },
+        {
+          "en": "First",
+          "es": "primero",
+          "kind": "content"
+        },
+        {
+          "en": "for",
+          "es": "para, porque",
+          "kind": "structure"
+        },
+        {
+          "en": "forget",
+          "es": "olvidar",
+          "kind": "content"
+        },
+        {
+          "en": "forgive",
+          "es": "perdonar",
+          "kind": "content"
+        },
+        {
+          "en": "four",
+          "es": "cuatro",
+          "kind": "content"
+        },
+        {
+          "en": "friend",
+          "es": "amigo, amiga",
+          "kind": "content"
+        },
+        {
+          "en": "gave",
+          "es": "dio",
+          "kind": "content"
+        },
+        {
+          "en": "Genesis",
+          "es": "Génesis",
+          "kind": "content"
+        },
+        {
+          "en": "give",
+          "es": "dar",
+          "kind": "content"
+        },
+        {
+          "en": "gives",
+          "es": "da",
+          "kind": "content"
+        },
+        {
+          "en": "God",
+          "es": "Dios",
+          "kind": "content"
+        },
+        {
+          "en": "Good",
+          "es": "bueno, buen",
+          "kind": "content"
+        },
+        {
+          "en": "gospel",
+          "es": "evangelio",
+          "kind": "content"
+        },
+        {
+          "en": "grace",
+          "es": "gracia (de Dios)",
+          "kind": "content"
+        },
+        {
+          "en": "grass",
+          "es": "césped, hierba",
+          "kind": "content"
+        },
+        {
+          "en": "have",
+          "es": "tener",
+          "kind": "content"
+        },
+        {
+          "en": "he",
+          "es": "él",
+          "kind": "structure"
+        },
+        {
+          "en": "heaven",
+          "es": "cielo (donde está Dios)",
+          "kind": "content"
+        },
+        {
+          "en": "heavens",
+          "es": "cielos",
+          "kind": "content"
+        },
+        {
+          "en": "here",
+          "es": "aquí",
+          "kind": "content"
+        },
+        {
+          "en": "him",
+          "es": "él, lo, le",
+          "kind": "structure"
+        },
+        {
+          "en": "his",
+          "es": "su (de él)",
+          "kind": "structure"
+        },
+        {
+          "en": "Holy",
+          "es": "santo, santa",
+          "kind": "content"
+        },
+        {
+          "en": "I",
+          "es": "yo",
+          "kind": "structure"
+        },
+        {
+          "en": "in",
+          "es": "en",
+          "kind": "structure"
+        },
+        {
+          "en": "is",
+          "es": "es, está",
+          "kind": "structure"
+        },
+        {
+          "en": "it",
+          "es": "ello; lo",
+          "kind": "structure"
+        },
+        {
+          "en": "Jesus",
+          "es": "Jesús",
+          "kind": "content"
+        },
+        {
+          "en": "John",
+          "es": "Juan",
+          "kind": "content"
+        },
+        {
+          "en": "know",
+          "es": "conocer, saber",
+          "kind": "content"
+        },
+        {
+          "en": "lack",
+          "es": "carecer, faltar",
+          "kind": "content"
+        },
+        {
+          "en": "lamp",
+          "es": "lámpara",
+          "kind": "content"
+        },
+        {
+          "en": "last",
+          "es": "último",
+          "kind": "content"
+        },
+        {
+          "en": "Let",
+          "es": "dejar; let us = -emos (let us pray = oremos)",
+          "kind": "structure"
+        },
+        {
+          "en": "life",
+          "es": "vida",
+          "kind": "content"
+        },
+        {
+          "en": "light",
+          "es": "luz",
+          "kind": "content"
+        },
+        {
+          "en": "line",
+          "es": "línea",
+          "kind": "content"
+        },
+        {
+          "en": "Lord",
+          "es": "Señor",
+          "kind": "content"
+        },
+        {
+          "en": "Lord's",
+          "es": "del Señor",
+          "kind": "content"
+        },
+        {
+          "en": "love",
+          "es": "amor; amar",
+          "kind": "content"
+        },
+        {
+          "en": "loved",
+          "es": "amó",
+          "kind": "content"
+        },
+        {
+          "en": "Matthew",
+          "es": "Mateo",
+          "kind": "content"
+        },
+        {
+          "en": "me",
+          "es": "me, mí",
+          "kind": "structure"
+        },
+        {
+          "en": "means",
+          "es": "significa",
+          "kind": "content"
+        },
+        {
+          "en": "morning",
+          "es": "mañana",
+          "kind": "content"
+        },
+        {
+          "en": "my",
+          "es": "mi, mis",
+          "kind": "structure"
+        },
+        {
+          "en": "neighbor",
+          "es": "prójimo, vecino",
+          "kind": "content"
+        },
+        {
+          "en": "No",
+          "es": "no, ningún",
+          "kind": "structure"
+        },
+        {
+          "en": "not",
+          "es": "no",
+          "kind": "structure"
+        },
+        {
+          "en": "nothing",
+          "es": "nada",
+          "kind": "content"
+        },
+        {
+          "en": "of",
+          "es": "de",
+          "kind": "structure"
+        },
+        {
+          "en": "on",
+          "es": "en, sobre; el (día)",
+          "kind": "structure"
+        },
+        {
+          "en": "one",
+          "es": "uno, una",
+          "kind": "structure"
+        },
+        {
+          "en": "only",
+          "es": "único, solo",
+          "kind": "structure"
+        },
+        {
+          "en": "Open",
+          "es": "abrir",
+          "kind": "content"
+        },
+        {
+          "en": "our",
+          "es": "nuestro, nuestra",
+          "kind": "structure"
+        },
+        {
+          "en": "pastor",
+          "es": "pastor",
+          "kind": "content"
+        },
+        {
+          "en": "path",
+          "es": "camino, sendero",
+          "kind": "content"
+        },
+        {
+          "en": "perish",
+          "es": "perecer, perderse",
+          "kind": "content"
+        },
+        {
+          "en": "Philippians",
+          "es": "Filipenses",
+          "kind": "content"
+        },
+        {
+          "en": "Please",
+          "es": "por favor",
+          "kind": "structure"
+        },
+        {
+          "en": "Praise",
+          "es": "alabar",
+          "kind": "content"
+        },
+        {
+          "en": "pray",
+          "es": "orar",
+          "kind": "content"
+        },
+        {
+          "en": "prayer",
+          "es": "oración (a Dios)",
+          "kind": "content"
+        },
+        {
+          "en": "preach",
+          "es": "predicar",
+          "kind": "content"
+        },
+        {
+          "en": "prey",
+          "es": "presa (animal cazado)",
+          "kind": "content"
+        },
+        {
+          "en": "Psalm",
+          "es": "salmo",
+          "kind": "content"
+        },
+        {
+          "en": "Psalms",
+          "es": "Salmos (el libro)",
+          "kind": "content"
+        },
+        {
+          "en": "read",
+          "es": "leer",
+          "kind": "content"
+        },
+        {
+          "en": "Romans",
+          "es": "Romanos",
+          "kind": "content"
+        },
+        {
+          "en": "room",
+          "es": "sala, cuarto",
+          "kind": "content"
+        },
+        {
+          "en": "Saint",
+          "es": "santo (persona)",
+          "kind": "content"
+        },
+        {
+          "en": "salvation",
+          "es": "salvación",
+          "kind": "content"
+        },
+        {
+          "en": "say",
+          "es": "decir",
+          "kind": "content"
+        },
+        {
+          "en": "sentence",
+          "es": "oración (gramatical)",
+          "kind": "content"
+        },
+        {
+          "en": "sermon",
+          "es": "sermón, predicación",
+          "kind": "content"
+        },
+        {
+          "en": "sermoning",
+          "es": "(no existe)",
+          "kind": "content"
+        },
+        {
+          "en": "service",
+          "es": "culto; servicio",
+          "kind": "content"
+        },
+        {
+          "en": "shall",
+          "es": "(futuro formal) no perecerá = shall not perish",
+          "kind": "structure"
+        },
+        {
+          "en": "shepherd",
+          "es": "pastor (de ovejas)",
+          "kind": "content"
+        },
+        {
+          "en": "sign",
+          "es": "señal, letrero",
+          "kind": "content"
+        },
+        {
+          "en": "sin",
+          "es": "pecado",
+          "kind": "content"
+        },
+        {
+          "en": "sing",
+          "es": "cantar",
+          "kind": "content"
+        },
+        {
+          "en": "sixteen",
+          "es": "dieciséis",
+          "kind": "content"
+        },
+        {
+          "en": "sixteenth",
+          "es": "decimosexto",
+          "kind": "content"
+        },
+        {
+          "en": "sky",
+          "es": "cielo (el azul, con nubes)",
+          "kind": "content"
+        },
+        {
+          "en": "so",
+          "es": "tanto, de tal manera; así que",
+          "kind": "structure"
+        },
+        {
+          "en": "Son",
+          "es": "hijo",
+          "kind": "content"
+        },
+        {
+          "en": "Spirit",
+          "es": "espíritu",
+          "kind": "content"
+        },
+        {
+          "en": "Spirits",
+          "es": "espíritus",
+          "kind": "content"
+        },
+        {
+          "en": "strength",
+          "es": "fuerza",
+          "kind": "content"
+        },
+        {
+          "en": "student",
+          "es": "estudiante",
+          "kind": "content"
+        },
+        {
+          "en": "study",
+          "es": "estudio",
+          "kind": "content"
+        },
+        {
+          "en": "Sunday",
+          "es": "domingo",
+          "kind": "content"
+        },
+        {
+          "en": "Supper",
+          "es": "cena",
+          "kind": "content"
+        },
+        {
+          "en": "ten",
+          "es": "diez",
+          "kind": "content"
+        },
+        {
+          "en": "Thank",
+          "es": "agradecer; thank you = gracias",
+          "kind": "content"
+        },
+        {
+          "en": "thanks",
+          "es": "gracias",
+          "kind": "content"
+        },
+        {
+          "en": "that",
+          "es": "que; ese, esa",
+          "kind": "structure"
+        },
+        {
+          "en": "the",
+          "es": "el, la, los, las",
+          "kind": "structure"
+        },
+        {
+          "en": "third",
+          "es": "tercero",
+          "kind": "content"
+        },
+        {
+          "en": "thirteen",
+          "es": "trece",
+          "kind": "content"
+        },
+        {
+          "en": "this",
+          "es": "esto, este, esta",
+          "kind": "structure"
+        },
+        {
+          "en": "three",
+          "es": "tres",
+          "kind": "content"
+        },
+        {
+          "en": "through",
+          "es": "por medio de",
+          "kind": "structure"
+        },
+        {
+          "en": "to",
+          "es": "a, hacia; marca del infinitivo",
+          "kind": "structure"
+        },
+        {
+          "en": "truth",
+          "es": "verdad",
+          "kind": "content"
+        },
+        {
+          "en": "twenty",
+          "es": "veinte",
+          "kind": "content"
+        },
+        {
+          "en": "two",
+          "es": "dos",
+          "kind": "content"
+        },
+        {
+          "en": "us",
+          "es": "nos, nosotros",
+          "kind": "structure"
+        },
+        {
+          "en": "verse",
+          "es": "versículo",
+          "kind": "content"
+        },
+        {
+          "en": "versicle",
+          "es": "(no se usa; se dice verse)",
+          "kind": "content"
+        },
+        {
+          "en": "way",
+          "es": "camino",
+          "kind": "content"
+        },
+        {
+          "en": "We",
+          "es": "nosotros, nosotras",
+          "kind": "structure"
+        },
+        {
+          "en": "Welcome",
+          "es": "bienvenido",
+          "kind": "content"
+        },
+        {
+          "en": "Where",
+          "es": "dónde",
+          "kind": "structure"
+        },
+        {
+          "en": "who",
+          "es": "que, quien",
+          "kind": "structure"
+        },
+        {
+          "en": "whoever",
+          "es": "todo aquel que",
+          "kind": "structure"
+        },
+        {
+          "en": "Word",
+          "es": "palabra",
+          "kind": "content"
+        },
+        {
+          "en": "world",
+          "es": "mundo",
+          "kind": "content"
+        },
+        {
+          "en": "worship",
+          "es": "adorar; adoración",
+          "kind": "content"
+        },
+        {
+          "en": "Yes",
+          "es": "sí",
+          "kind": "structure"
+        },
+        {
+          "en": "you",
+          "es": "tú, usted, ustedes; te, le",
+          "kind": "structure"
+        },
+        {
+          "en": "your",
+          "es": "tu, su (de usted)",
+          "kind": "structure"
+        },
+        {
+          "en": "yourself",
+          "es": "ti mismo, usted mismo",
           "kind": "content"
         }
       ]

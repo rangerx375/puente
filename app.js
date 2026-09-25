@@ -150,8 +150,8 @@ function openLessonCount() {
   while (n < book().lessons.length && lessonCleared(book().lessons[n - 1])) n += 1;
   return n;
 }
-// The teacher can open any lesson to look at it.
-const unlocked = (i) => state.role === "teacher" || i < openLessonCount();
+// The teacher can open any lesson to look at it; special chapters (electives) are open to everyone.
+const unlocked = (i) => state.role === "teacher" || !!book().lessons[i]?.elective || i < openLessonCount();
 function scoreKey(p) {
   const id = lesson().id;
   return p?.type === "review" ? id + "#review" : id;
@@ -178,8 +178,10 @@ const page = () => lesson()?.pages[state.page];
 const lessonLabel = (id) => {
   const i = BANK.lessonIndex.get(id);
   const L = book().lessons[i];
-  return L ? `${L.level}.${L.num} ${L.title}` : id;
+  if (!L) return id;
+  return L.elective ? L.title : `${L.level}.${L.num} ${L.title}`;
 };
+const levelCode = (L) => book().levels.find((lv) => lv.id === L.level)?.code || `ENGL ${L.level}`;
 
 function speak(text) {
   if (!window.speechSynthesis) return;
@@ -265,7 +267,7 @@ function shell(inner, inLesson = false) {
   const L = lesson();
   const p = page();
   const folio = inLesson
-    ? `ENGL ${L.level} · L${L.num} · pág. ${state.page + 1}/${L.pages.length}`
+    ? `${levelCode(L)} · L${L.num} · pág. ${state.page + 1}/${L.pages.length}`
     : state.role === "teacher" ? "Profesor" : escapeHtml(state.name);
   return `
     <header class="running">
@@ -682,7 +684,8 @@ function viewPage() {
       </table>
       <div class="examples">
         ${p.examples.map((ex) => `<p><button class="word" data-say="${encodeURIComponent(ex.en)}">${fill(ex.en)}</button><span> — ${ex.es}</span></p>`).join("")}
-      </div>`;
+      </div>
+      ${p.note ? `<p class="tiny">${p.note}</p>` : ""}`;
   }
   if (p.type === "fill") {
     return exerciseWrap(p, p.items.map((it, i) => `

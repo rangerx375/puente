@@ -133,7 +133,7 @@ function pickItems(focus, responses, size, seed, now = Date.now()) {
 // Automatic focus: the weakest skill areas in lessons the student has already opened,
 // preferring different lessons so one topic doesn't take the whole set.
 function autoFocus(m, openCount) {
-  const open = new Set(book.lessons.slice(0, openCount).map((L) => L.id));
+  const open = new Set(book.lessons.filter((L, i) => i < openCount || L.elective).map((L) => L.id));
   const weak = m.cells.filter((c) => open.has(c.topic) && c.n >= 2 && c.mastery < 0.7)
     .sort((a, b) => a.mastery - b.mastery || b.n - a.n);
   const focus = [];
