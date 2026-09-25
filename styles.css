@@ -161,7 +161,7 @@ h2 { font-size: 24px; line-height: 1.2; }
 }
 
 label.field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
-input[type="text"] {
+input[type="text"], input[type="password"] {
   border: 1px solid var(--line);
   background: var(--white);
   border-radius: 12px;
