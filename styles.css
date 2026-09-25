@@ -410,6 +410,17 @@ table.lex th { color: var(--muted); font-size: 11px; letter-spacing: 0.1em; text
   padding: 6px 10px;
 }
 .tile.ghost { color: var(--muted); }
+.tile:disabled { opacity: .35; cursor: default; }
+.storage-warn {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 10px 16px;
+  background: var(--terra);
+  color: var(--white);
+  font-size: 14px;
+  text-align: center;
+}
 .built {
   min-height: 36px;
   border-bottom: 1px solid var(--ink);

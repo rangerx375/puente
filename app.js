@@ -26,13 +26,70 @@ const defaultState = () => ({
   teacherStudent: ""
 });
 
+const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+
 function load() {
-  try { return { ...defaultState(), ...JSON.parse(localStorage.getItem(STORE_KEY) || "{}") }; }
-  catch { return defaultState(); }
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch { raw = null; }
+  const st = { ...defaultState(), ...(isObj(raw) ? raw : {}) };
+  ["doneLessons", "scores", "answers", "timeMs"].forEach((k) => { if (!isObj(st[k])) st[k] = {}; });
+  stripReviewHtml(st.scores);
+  const lessons = book()?.lessons || [];
+  if (!Number.isInteger(st.lesson) || st.lesson < 0 || st.lesson >= lessons.length) { st.lesson = 0; st.page = 0; if (st.view === "lesson") st.view = "toc"; }
+  const pages = lessons[st.lesson]?.pages || [];
+  if (!Number.isInteger(st.page) || st.page < 0 || st.page >= pages.length) st.page = 0;
+  if (!Number.isInteger(st.qIndex) || st.qIndex < 0) st.qIndex = 0;
+  return st;
 }
-function save() {
-  localStorage.setItem(STORE_KEY, JSON.stringify({ ...state, clockOn: 0 }));
-  window.PUENTE_CLASSROOM?.saveAccountFromState?.(state);
+
+// Older versions kept a full HTML answer sheet inside every score. That filled the browser's
+// storage after a handful of students on one computer; the sheet is now rebuilt from `res`.
+function stripReviewHtml(scores) {
+  Object.values(scores || {}).forEach((sc) => { if (isObj(sc)) delete sc.review; });
+}
+
+// Another tab may have saved progress since this tab last read it. Keep the best of both.
+function mergeProgress(into, from) {
+  Object.entries(from.scores || {}).forEach(([k, b]) => {
+    const a = into.scores[k];
+    if (!isObj(b)) return;
+    if (!a) { into.scores[k] = b; return; }
+    const newer = (b.ts || 0) > (a.ts || 0) ? b : a;
+    into.scores[k] = { ...newer, passed: !!(a.passed || b.passed), attempts: Math.max(a.attempts || 0, b.attempts || 0) };
+  });
+  Object.entries(from.timeMs || {}).forEach(([k, v]) => { into.timeMs[k] = Math.max(into.timeMs[k] || 0, v || 0); });
+  Object.keys(from.doneLessons || {}).forEach((k) => { into.doneLessons[k] = true; });
+}
+const sameStudent = (a, b) => !!a.onboarded && !!b.onboarded && a.role === b.role
+  && window.PUENTE_CLASSROOM.slugName(a.firstName, a.lastName) === window.PUENTE_CLASSROOM.slugName(b.firstName, b.lastName);
+
+let storageWarned = false;
+function storageFailed() {
+  if (storageWarned) return;
+  storageWarned = true;
+  const bar = document.createElement("div");
+  bar.className = "storage-warn";
+  bar.setAttribute("role", "alert");
+  bar.textContent = "Este navegador no deja guardar. Tu progreso se perderá al cerrar la página. (Sin espacio o modo privado.)";
+  document.body.prepend(bar);
+}
+window.PUENTE_STORAGE_FAILED = storageFailed;
+
+let syncTimer = 0;
+function save(opts = {}) {
+  try {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch { stored = null; }
+    if (isObj(stored) && sameStudent(state, stored)) mergeProgress(state, stored);
+    localStorage.setItem(STORE_KEY, JSON.stringify({ ...state, clockOn: 0 }));
+  } catch { storageFailed(); }
+  clearTimeout(syncTimer);
+  if (opts.soon) { syncTimer = setTimeout(syncAccount, 800); return; }
+  syncAccount();
+}
+function syncAccount() {
+  clearTimeout(syncTimer);
+  try { window.PUENTE_CLASSROOM?.saveAccountFromState?.(state); } catch { storageFailed(); }
 }
 function lessonCleared(L) {
   return !!(state.scores[L.id]?.passed && state.scores[L.id + "#review"]?.passed);
@@ -56,8 +113,11 @@ const markSvg = `
   <path d="M22 40c3.2-10 6.4-15 10-15s6.8 5 10 15" stroke="#C45C3E" stroke-width="2" stroke-linecap="round"/>
 </svg>`;
 
-const fill = (t) => (t || "").replaceAll("{name}", state.name || "Alex");
-const norm = (s) => fill(s).toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+// fill() output goes into HTML, so the student's name is escaped; fillText() is for grading and speech.
+const fill = (t) => (t || "").replaceAll("{name}", escapeHtml(state.name || "Alex"));
+const fillText = (t) => (t || "").replaceAll("{name}", state.name || "Alex");
+const norm = (s) => fillText(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+  .replace(/['’]/g, "").replace(/[-–—/]/g, " ").replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 const lesson = () => book().lessons[state.lesson];
 const page = () => lesson()?.pages[state.page];
 
@@ -68,11 +128,14 @@ function scoreOf(id) {
 function speak(text) {
   if (!window.speechSynthesis) return;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(fill(text));
+  const u = new SpeechSynthesisUtterance(fillText(text));
   u.lang = "en-US";
   u.rate = 0.92;
   speechSynthesis.speak(u);
 }
+
+// Bumped on every render so a dialogue that is still playing stops when the page changes.
+let playToken = 0;
 
 function listenOnce() {
   const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -81,9 +144,14 @@ function listenOnce() {
   rec.lang = "en-US";
   rec.interimResults = false;
   return new Promise((resolve, reject) => {
-    rec.onresult = (e) => resolve(e.results[0][0].transcript);
-    rec.onerror = reject;
-    rec.start();
+    let done = false;
+    const finish = (fn, v) => { if (done) return; done = true; clearTimeout(timer); fn(v); };
+    // Silence ends recognition without a result or an error; without this the promise never settles.
+    const timer = setTimeout(() => { try { rec.abort(); } catch {} finish(reject, new Error("timeout")); }, 12000);
+    rec.onresult = (e) => finish(resolve, e.results[0][0].transcript);
+    rec.onerror = (e) => finish(reject, e);
+    rec.onend = () => finish(reject, new Error("no-result"));
+    try { rec.start(); } catch (e) { finish(reject, e); }
   });
 }
 
@@ -91,9 +159,29 @@ function keyFor(extra = "") {
   return `${lesson().id}:${state.page}:${extra}`;
 }
 
+const TEACHER_VIEWS = ["teacher", "student-detail"];
+
 function render() {
+  playToken += 1;
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  try { renderView(); }
+  catch (err) {
+    // A bad saved position (or a content edit) must never leave a blank screen.
+    console.error("Puente render failed; returning to the index", err);
+    if (state.view === "toc" && state.onboarded) { $("#app").textContent = "Error al cargar. Recarga la página."; return; }
+    state.view = "toc";
+    state.page = 0;
+    state.qIndex = 0;
+    renderView();
+  }
+  syncHistory();
+}
+
+function renderView() {
   const root = $("#app");
   document.querySelector(".app")?.classList.remove("wide");
+  if (TEACHER_VIEWS.includes(state.view) && state.role !== "teacher") state.view = "toc";
+  if (state.view === "lesson" && (!lesson() || !unlocked(state.lesson))) state.view = "toc";
   if (!state.onboarded) { root.innerHTML = viewOnboard(); bindOnboard(); return; }
   if (state.view === "how") { root.innerHTML = shell(viewHow()); bindNav(); return; }
   if (state.view === "teacher") { root.innerHTML = shell(window.PUENTE_CLASSROOM.viewTeacher()); bindNav(); window.PUENTE_CLASSROOM.bindTeacher(); return; }
@@ -145,16 +233,17 @@ function viewOnboard() {
       <p class="lede">Nombre y apellido. Elige una clave. Al entrar, tu nombre queda en la lista del profesor.</p>
       <p id="auth-msg" class="tiny"></p>
       <label class="field">Nombre
-        <input id="first" type="text" value="${state.firstName || ""}" autocomplete="given-name">
+        <input id="first" type="text" value="${escapeAttr(state.firstName)}" autocomplete="given-name" maxlength="40">
       </label>
       <label class="field">Apellido
-        <input id="last" type="text" value="${state.lastName || ""}" autocomplete="family-name">
+        <input id="last" type="text" value="${escapeAttr(state.lastName)}" autocomplete="family-name" maxlength="40">
       </label>
       <label class="field">Clave (para que nadie entre en tu cuenta)
-        <input id="pin" type="password" value="${state.pin || ""}" autocomplete="current-password">
+        <input id="pin" type="password" value="" autocomplete="current-password" maxlength="40">
       </label>
       <button class="btn full" id="enter">Entrar como alumno</button>
       <button class="btn secondary full" id="enter-teacher">Entrar como profesor</button>
+      <p class="tiny">Profesor: solo hace falta la clave. ${window.PUENTE_CLASSROOM.hasTeacherPin() ? "" : "La primera clave que escriba aquí queda como clave del profesor en este aparato."}</p>
     </div>`;
 }
 
@@ -168,6 +257,18 @@ function bindOnboard() {
   ["first", "last", "pin"].forEach((id) => $("#" + id)?.addEventListener("input", read));
   const goTeacher = () => {
     read();
+    if (!state.pin) {
+      $("#auth-msg").textContent = "Escriba la clave del profesor.";
+      return;
+    }
+    const gate = window.PUENTE_CLASSROOM.checkTeacherPin(state.pin);
+    if (!gate.ok) {
+      $("#auth-msg").textContent = gate.error;
+      return;
+    }
+    state.firstName = "";
+    state.lastName = "";
+    state.pin = "";
     state.onboarded = true;
     state.role = "teacher";
     state.view = "teacher";
@@ -191,14 +292,23 @@ function bindOnboard() {
     }
     if (found.ok === true && found.acc) {
       const acc = found.acc;
-      state.scores = acc.scores || {};
-      state.answers = acc.answers || {};
-      state.timeMs = acc.timeMs || {};
-      state.doneLessons = acc.doneLessons || {};
+      state.scores = isObj(acc.scores) ? acc.scores : {};
+      state.answers = isObj(acc.answers) ? acc.answers : {};
+      state.timeMs = isObj(acc.timeMs) ? acc.timeMs : {};
+      state.doneLessons = isObj(acc.doneLessons) ? acc.doneLessons : {};
+      stripReviewHtml(state.scores);
       state.studentCode = acc.code || state.studentCode;
     } else {
-      state.studentCode = state.studentCode || Math.random().toString(36).slice(2, 6).toUpperCase();
+      // A brand-new name must not inherit whatever the previous person on this device left behind.
+      state.scores = {};
+      state.answers = {};
+      state.timeMs = {};
+      state.doneLessons = {};
+      state.studentCode = Math.random().toString(36).slice(2, 6).toUpperCase();
     }
+    state.lesson = 0;
+    state.page = 0;
+    state.qIndex = 0;
     state.onboarded = true;
     state.role = "student";
     state.view = "how";
@@ -209,6 +319,9 @@ function bindOnboard() {
   };
   $("#enter").addEventListener("click", goStudent);
   $("#enter-teacher").addEventListener("click", goTeacher);
+  ["first", "last", "pin"].forEach((id) => $("#" + id)?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); goStudent(); }
+  }));
 }
 
 function viewHow() {
@@ -259,7 +372,9 @@ function viewToc() {
     <h1>Contenido</h1>
     <p class="lede">Cuatro semestres. Una lección abre cuando la anterior está al 80%.</p>
     ${blocks}
-    <p class="tiny"><a href="#" data-view="how">Cómo usar este libro</a> · <a href="#" data-view="slip">Ficha para el profesor</a> · <a href="#" data-view="teacher">Escritorio del profesor</a> · <a href="#" id="logout">Cerrar sesión</a> · <a href="#" id="reset">Empezar de cero</a></p>
+    <p class="tiny"><a href="#" data-view="how">Cómo usar este libro</a>${state.role === "teacher"
+      ? ` · <a href="#" data-view="teacher">Escritorio del profesor</a>`
+      : ` · <a href="#" data-view="slip">Ficha para el profesor</a>`} · <a href="#" id="logout">Cerrar sesión</a>${state.role === "teacher" ? "" : ` · <a href="#" id="reset">Empezar de cero</a>`}</p>
   `;
 }
 
@@ -350,8 +465,8 @@ function viewPage() {
       const pool = shuffleStable(it.words, lesson().id + state.page + i);
       return `<div class="drill-block" data-order="${i}">
         <p>${i + 1}. Arma la frase.</p>
-        <div class="built" data-built="${i}">${built || "<span class='ghost'>Toca las palabras</span>"}</div>
-        <div class="pool">${pool.map((w) => `<button type="button" class="tile" data-add="${i}" data-w="${escapeAttr(w)}">${w}</button>`).join("")}
+        <div class="built" data-built="${i}">${built ? escapeHtml(built) : "<span class='ghost'>Toca las palabras</span>"}</div>
+        <div class="pool">${tiles(pool, built, i)}
           <button type="button" class="tile ghost" data-clear="${i}">borrar</button>
         </div>
       </div>`;
@@ -415,11 +530,22 @@ function itemFields(it, i) {
     const built = savedAns(i) || "";
     const pool = shuffleStable(it.words, lesson().id + state.page + i + String(scoreOf(lesson().id)?.attempts || 0));
     return `<div class="drill-block"><p>${i + 1}. Arma la frase.</p>
-      <div class="built">${built || "<span class='ghost'>Toca las palabras</span>"}</div>
-      <div class="pool">${pool.map((w) => `<button type="button" class="tile" data-add="${i}" data-w="${escapeAttr(w)}">${w}</button>`).join("")}
+      <div class="built">${built ? escapeHtml(built) : "<span class='ghost'>Toca las palabras</span>"}</div>
+      <div class="pool">${tiles(pool, built, i)}
         <button type="button" class="tile ghost" data-clear="${i}">borrar</button></div></div>`;
   }
   return "";
+}
+
+// A tile can be used only as many times as it appears in the pool; used tiles are greyed out.
+function tiles(pool, built, i) {
+  const used = {};
+  (built || "").split(" ").filter(Boolean).forEach((w) => { used[w] = (used[w] || 0) + 1; });
+  return pool.map((w) => {
+    const spent = used[w] > 0;
+    if (spent) used[w] -= 1;
+    return `<button type="button" class="tile" data-add="${i}" data-w="${escapeAttr(w)}" ${spent ? "disabled" : ""}>${escapeHtml(w)}</button>`;
+  }).join("");
 }
 
 function viewQuiz(p) {
@@ -453,7 +579,19 @@ function viewQuiz(p) {
       </div>
       <button class="btn secondary" id="retake" type="button">Empezar el examen de nuevo</button>
     </form>
-    <div id="key" class="key">${sc?.review && last ? sc.review : ""}</div>`;
+    <div id="key" class="key">${sc && last ? reviewHtml(p, sc) : ""}</div>`;
+}
+
+// Rebuilds the answer sheet from the stored right/wrong string instead of keeping HTML in storage.
+function reviewHtml(p, sc) {
+  if (!sc.res || sc.res.length !== p.items.length) return "";
+  const lines = p.items.map((it, i) => {
+    const ok = sc.res[i] === "1";
+    return `<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : "Clave: " + markItem(it, i).key}</div>`;
+  });
+  const passed = sc.lastPassed ?? sc.passed;
+  return `<strong>${passed ? "Aprobado" : "Suspenso"}</strong> · ${sc.percent}% (${sc.right}/${sc.total}) · mínimo ${PASS()}%
+    <div class="stack" style="margin-top:8px">${lines.join("")}</div>`;
 }
 
 function lessonByFrom(id) {
@@ -496,18 +634,24 @@ function bindNav() {
   }));
   $("#reset")?.addEventListener("click", (e) => {
     e.preventDefault();
-    localStorage.removeItem(STORE_KEY);
+    if (!confirm("¿Borrar todo tu progreso en este aparato y empezar desde la lección 1? No se puede deshacer.")) return;
+    // The saved account is what brings progress back at sign-in, so it has to go too.
+    // The teacher's gradebook keeps its own copy of past results.
+    window.PUENTE_CLASSROOM?.deleteAccount?.(state.firstName, state.lastName);
+    try { localStorage.removeItem(STORE_KEY); } catch {}
     state = defaultState();
     render();
   });
   $("#logout")?.addEventListener("click", (e) => {
     e.preventDefault();
     pulseTime();
-    window.PUENTE_CLASSROOM?.saveAccountFromState?.(state);
-    const keep = { firstName: state.firstName, lastName: state.lastName };
+    syncAccount();
+    const keep = { firstName: state.role === "teacher" ? "" : state.firstName, lastName: state.role === "teacher" ? "" : state.lastName };
     state = defaultState();
     state.firstName = keep.firstName;
     state.lastName = keep.lastName;
+    // Persist the signed-out state; otherwise a reload re-opens the previous person's session.
+    save();
     render();
   });
 }
@@ -516,7 +660,7 @@ function bindPage() {
   bindNav();
   $$("[data-say]").forEach((b) => b.addEventListener("click", () => speak(decodeURIComponent(b.dataset.say))));
   $("[data-prev]")?.addEventListener("click", () => {
-    if (state.page > 0) { state.page -= 1; save(); render(); }
+    if (state.page > 0) { state.page -= 1; state.qIndex = 0; save(); render(); window.scrollTo(0, 0); }
   });
   $("[data-next]")?.addEventListener("click", () => nextPage());
   $("#check")?.addEventListener("click", grade);
@@ -541,10 +685,20 @@ function bindPage() {
     save();
     render();
   });
-  $$("[data-q]").forEach((inp) => inp.addEventListener("input", () => {
-    state.answers[keyFor(inp.dataset.q)] = inp.value;
-    save();
-  }));
+  $$("[data-q]").forEach((inp) => {
+    // Saving the whole roster on every keystroke made typing lag once the class grew.
+    inp.addEventListener("input", () => {
+      state.answers[keyFor(inp.dataset.q)] = inp.value;
+      save({ soon: true });
+    });
+    inp.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      // Enter moves to the next exam question but never hands the exam in by accident.
+      const exam = page()?.type === "quiz" || page()?.type === "review";
+      (exam ? $("#qnext") : $("#check"))?.click();
+    });
+  });
   $$("input[type=radio]").forEach((inp) => inp.addEventListener("change", () => {
     state.answers[keyFor(inp.name.slice(1))] = inp.value;
     save();
@@ -562,9 +716,11 @@ function bindPage() {
     render();
   }));
   $("[data-play]")?.addEventListener("click", async () => {
+    const mine = ++playToken;
     for (const line of page().lines) {
+      if (mine !== playToken) return;
       speak(line.en);
-      await wait(Math.min(2800, 500 + fill(line.en).length * 75));
+      await wait(Math.min(2800, 500 + fillText(line.en).length * 75));
     }
   });
   $("[data-mic]")?.addEventListener("click", runMic);
@@ -631,12 +787,12 @@ function grade() {
 }
 
 function gradeQuiz(p) {
-  const out = [];
   let right = 0;
+  let res = "";
   p.items.forEach((it, i) => {
-    const { ok, key } = markItem(it, i);
+    const { ok } = markItem(it, i);
     if (ok) right += 1;
-    out.push(`<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : "Clave: " + key}</div>`);
+    res += ok ? "1" : "0";
   });
   const total = p.items.length;
   const percent = Math.round((right / total) * 100);
@@ -650,13 +806,11 @@ function gradeQuiz(p) {
     passed: !!(prev && prev.passed) || passed,
     lastPassed: passed,
     attempts: (prev?.attempts || 0) + 1,
-    ts: Date.now()
+    ts: Date.now(),
+    res
   };
   if (lessonCleared(lesson())) state.doneLessons[lesson().id] = true;
-  state.scores[key].review = `<strong>${passed ? "Aprobado" : "Suspenso"}</strong> · ${percent}% (${right}/${total}) · mínimo ${PASS()}%
-    <div class="stack" style="margin-top:8px">${out.join("")}</div>`;
   save();
-  window.PUENTE_CLASSROOM?.syncLocalStudentIntoClass();
   render();
 }
 
@@ -671,6 +825,10 @@ function retakeQuiz() {
 async function runMic() {
   const expected = page().prompt;
   const el = $("#heard");
+  const btn = $("[data-mic]");
+  if (btn?.disabled) return;
+  if (btn) { btn.disabled = true; btn.textContent = "Escuchando…"; }
+  el.textContent = "Habla ahora.";
   try {
     const heard = await listenOnce();
     const a = new Set(norm(expected).split(" "));
@@ -685,6 +843,8 @@ async function runMic() {
     state.spoken += 1;
     save();
     el.textContent = "Micrófono no disponible. Recita la frase y pasa la página.";
+  } finally {
+    if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = "Hablar"; }
   }
 }
 
@@ -693,6 +853,11 @@ function escapeAttr(s) {
   const map = { '&': '&' + 'amp;', '"': '&' + 'quot;', '<': '&' + 'lt;' };
   return String(s ?? '').replace(/[&"<]/g, ch => map[ch]);
 }
+function escapeHtml(s) {
+  const map = { '&': '&' + 'amp;', '"': '&' + 'quot;', '<': '&' + 'lt;', '>': '&' + 'gt;', "'": '&' + '#39;' };
+  return String(s ?? '').replace(/[&"<>']/g, ch => map[ch]);
+}
+window.PUENTE_ESC = escapeHtml;
 function shuffleStable(arr, seed) {
   const a = [...arr];
   let h = 0;
@@ -705,6 +870,13 @@ function shuffleStable(arr, seed) {
   return a;
 }
 
+// Time only counts while someone is actually using the page. A lesson left open on an
+// unattended screen used to keep adding minutes to the teacher's report all night.
+const IDLE_MS = 5 * 60000;
+let lastActivity = Date.now();
+["pointerdown", "keydown", "scroll", "touchstart", "wheel"].forEach((ev) =>
+  window.addEventListener(ev, () => { lastActivity = Date.now(); }, { passive: true, capture: true }));
+
 function pulseTime() {
   if (!state.onboarded || state.role === "teacher" || state.view !== "lesson" || !lesson()) return;
   const now = Date.now();
@@ -712,6 +884,7 @@ function pulseTime() {
   const d = now - state.clockOn;
   state.clockOn = now;
   if (d < 0 || d > 180000) return;
+  if (now - lastActivity > IDLE_MS) return;
   state.timeMs = state.timeMs || {};
   state.timeMs[lesson().id] = (state.timeMs[lesson().id] || 0) + d;
 }
@@ -722,6 +895,49 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { pulseTime(); save(); state.clockOn = 0; }
   else state.clockOn = Date.now();
+});
+window.addEventListener("pagehide", () => { pulseTime(); save(); });
+
+// Another tab changed the saved session: follow a sign-in/sign-out there, otherwise pull in its progress.
+window.addEventListener("storage", (e) => {
+  if (e.key !== STORE_KEY && e.key !== null) return;
+  const incoming = load();
+  if (sameStudent(state, incoming)) {
+    mergeProgress(state, incoming);
+    if (state.view === "toc") render();
+    return;
+  }
+  if (!state.onboarded && !incoming.onboarded) return;
+  state = incoming;
+  render();
+});
+
+// Browser Back/Forward move between pages of the book instead of leaving the site.
+let restoringHistory = false;
+function navKey() {
+  if (!state.onboarded) return "login";
+  return state.view === "lesson" ? `lesson:${state.lesson}:${state.page}` : state.view;
+}
+function syncHistory() {
+  if (restoringHistory || !window.history?.pushState) return;
+  const k = navKey();
+  const snap = { k, view: state.view, lesson: state.lesson, page: state.page };
+  try {
+    if (!history.state) history.replaceState(snap, "");
+    else if (history.state.k !== k) history.pushState(snap, "");
+  } catch {}
+}
+window.addEventListener("popstate", (e) => {
+  const s = e.state;
+  if (!s || !state.onboarded || s.k === "login") return;
+  const target = s.view === "lesson" ? s.lesson : state.lesson;
+  const allowed = s.view !== "lesson" || (book().lessons[target] && unlocked(target));
+  if (!allowed) return;
+  state.view = s.view;
+  if (s.view === "lesson") { state.lesson = s.lesson; state.page = Math.min(s.page, lesson().pages.length - 1); state.qIndex = 0; }
+  restoringHistory = true;
+  try { save(); render(); } finally { restoringHistory = false; }
+  window.scrollTo(0, 0);
 });
 
 render();

@@ -5,21 +5,51 @@ function defaultClass() {
   return { name: "Puente", pin: "", students: [], assignments: [] };
 }
 
+const isPlain = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const esc = (s) => window.PUENTE_ESC(s);
+
 function loadClass() {
-  try { return { ...defaultClass(), ...JSON.parse(localStorage.getItem(CLASS_KEY) || "{}") }; }
-  catch { return defaultClass(); }
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(CLASS_KEY) || "{}"); } catch { raw = null; }
+  const k = { ...defaultClass(), ...(isPlain(raw) ? raw : {}) };
+  if (!Array.isArray(k.students)) k.students = [];
+  if (!Array.isArray(k.assignments)) k.assignments = [];
+  k.students = k.students.filter(isPlain);
+  k.students.forEach((s) => {
+    if (!isPlain(s.scores)) s.scores = {};
+    Object.values(s.scores).forEach((sc) => { if (isPlain(sc)) delete sc.review; });
+    if (!s.id) s.id = uid();
+    if (!s.name) s.name = fullName(s.first, s.last) || "Alumno";
+  });
+  return k;
 }
-function saveClass() { localStorage.setItem(CLASS_KEY, JSON.stringify(klass)); }
+function saveClass() {
+  try { localStorage.setItem(CLASS_KEY, JSON.stringify(klass)); }
+  catch { window.PUENTE_STORAGE_FAILED?.(); }
+}
+// Re-read before every change: a student tab and a teacher tab on one computer share this record,
+// and writing a stale in-memory copy used to erase the other tab's changes.
+function freshClass() { klass = loadClass(); }
 let klass = loadClass();
 
 function loadAccounts() {
-  try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || "{}"); }
-  catch { return {}; }
+  try {
+    const m = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || "{}");
+    return isPlain(m) ? m : {};
+  } catch { return {}; }
 }
 function saveAccounts(map) { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(map)); }
 
+// Accent- and case-insensitive, so "Maria Lopez" and "María López" are the same student.
 function slugName(first, last) {
-  return `${(first || "").trim().toLowerCase()}.${(last || "").trim().toLowerCase()}`.replace(/\s+/g, "");
+  const clean = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  return `${clean(first)}.${clean(last)}`.replace(/\s+/g, "");
+}
+// Older saves are keyed by the exact accented spelling ("maría.lópez"); find them however the name is typed now.
+const deaccent = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function legacyKeys(map, first, last) {
+  const key = slugName(first, last);
+  return Object.keys(map).filter((k) => k !== key && deaccent(k) === key);
 }
 function fullName(first, last) {
   return `${(first || "").trim()} ${(last || "").trim()}`.trim();
@@ -39,8 +69,10 @@ function bothPassed(scores, id) {
 function enrollStudent(first, last, code) {
   const name = fullName(first, last);
   if (!name) return null;
+  freshClass();
   const key = slugName(first, last);
-  let stu = klass.students.find((s) => s.account === key || (s.name || "").toLowerCase() === name.toLowerCase());
+  const bare = (s) => deaccent(s).toLowerCase();
+  let stu = klass.students.find((s) => s.account === key || deaccent(s.account) === key || bare(s.name) === bare(name));
   if (!stu) {
     stu = { id: uid(), account: key, first, last, name, code: code || code4(), scores: {}, paper: {}, timeMs: {} };
     klass.students.push(stu);
@@ -56,9 +88,11 @@ function enrollStudent(first, last, code) {
 }
 
 function saveAccountFromState(st) {
-  if (!st.firstName || !st.lastName || st.role === "teacher") return;
+  // Signed-out state still carries the last name typed on the login screen; never write it over an account.
+  if (!st.onboarded || !st.firstName || !st.lastName || st.role === "teacher") return;
   const map = loadAccounts();
   const key = slugName(st.firstName, st.lastName);
+  legacyKeys(map, st.firstName, st.lastName).forEach((k) => { delete map[k]; });
   map[key] = {
     first: st.firstName,
     last: st.lastName,
@@ -83,11 +117,29 @@ function saveAccountFromState(st) {
 
 function loadAccount(first, last, pin) {
   const map = loadAccounts();
-  const key = slugName(first, last);
-  const acc = map[key];
-  if (!acc) return { ok: "new" };
+  const acc = map[slugName(first, last)] || map[legacyKeys(map, first, last)[0]];
+  if (!isPlain(acc)) return { ok: "new" };
   if ((acc.pin || "") !== (pin || "")) return { ok: false, error: "Clave incorrecta." };
   return { ok: true, acc };
+}
+
+function deleteAccount(first, last) {
+  const map = loadAccounts();
+  delete map[slugName(first, last)];
+  legacyKeys(map, first, last).forEach((k) => { delete map[k]; });
+  try { saveAccounts(map); } catch {}
+}
+
+function hasTeacherPin() { return !!loadClass().pin; }
+function checkTeacherPin(pin) {
+  freshClass();
+  if (!klass.pin) {
+    if (pin.length < 4) return { ok: false, error: "La clave del profesor necesita al menos 4 caracteres." };
+    klass.pin = pin;
+    saveClass();
+    return { ok: true, created: true };
+  }
+  return klass.pin === pin ? { ok: true } : { ok: false, error: "Clave del profesor incorrecta." };
 }
 
 function uid() { return "s" + Math.random().toString(36).slice(2, 8); }
@@ -163,6 +215,7 @@ function studentStatus(stu) {
 
 function viewTeacher() {
   document.querySelector(".app")?.classList.add("wide");
+  freshClass();
   const assigned = assignedIds();
   const due = dueDate();
   const rows = klass.students.map((stu) => {
@@ -171,7 +224,7 @@ function viewTeacher() {
     const lastTxt = last ? `${lessonLabel(last[0])} · ${last[1].percent}%` : "—";
     const mark = st.ready ? "listo" : st.late ? "atrasado" : st.assigned.length ? "pendiente" : "sin tarea";
     return `<tr class="${st.late ? "late" : st.ready ? "ready" : ""}">
-      <td><button class="linkish" data-student="${stu.id}">${stu.name}</button><div class="tiny">${stu.code}</div></td>
+      <td><button class="linkish" data-student="${esc(stu.id)}">${esc(stu.name)}</button><div class="tiny">${esc(stu.code)}</div></td>
       <td>${st.passed.length}/${st.assigned.length || "—"}</td>
       <td>${st.missing.map(lessonLabel).join(", ") || "—"}</td>
       <td>${lastTxt}</td>
@@ -181,10 +234,10 @@ function viewTeacher() {
   }).join("");
   return `
     <p class="kicker">Escritorio del profesor</p>
-    <h1>${klass.name || "Clase"}</h1>
-    <p class="lede">Tarea actual: ${assigned.length ? assigned.map(lessonLabel).join(", ") : "ninguna lección asignada"}${due ? " · para el " + due : ""}.</p>
+    <h1>${esc(klass.name || "Clase")}</h1>
+    <p class="lede">Tarea actual: ${assigned.length ? assigned.map(lessonLabel).join(", ") : "ninguna lección asignada"}${due ? " · para el " + esc(due) : ""}.</p>
     <div class="row wrap">
-      <input id="class-name" type="text" value="${klass.name || ""}" placeholder="Nombre de la clase">
+      <input id="class-name" type="text" value="${esc(klass.name || "")}" placeholder="Nombre de la clase" maxlength="60">
       <button class="btn secondary" id="save-class">Guardar nombre</button>
     </div>
     <h3 class="subhead">Alumnos</h3>
@@ -200,7 +253,7 @@ function viewTeacher() {
     </div>
     <h3 class="subhead">Tarea para la próxima clase</h3>
     <label class="field">Fecha de clase
-      <input id="due" type="date" value="${due}">
+      <input id="due" type="date" value="${esc(due)}">
     </label>
     <div class="assign-grid">
       ${book().lessons.map((L) => `
@@ -214,12 +267,13 @@ function viewTeacher() {
     <textarea id="packet" rows="3" placeholder="PUENTE.…"></textarea>
     <button class="btn secondary" id="eat-packet">Registrar ficha</button>
     <p id="packet-msg" class="tiny"></p>
-    <p class="tiny"><a href="#" data-view="toc">Volver al libro</a> · <a href="#" id="export-csv">Descargar notas (CSV)</a></p>
+    <p class="tiny"><a href="#" data-view="toc">Volver al libro</a> · <a href="#" id="export-csv">Descargar notas (CSV)</a> · <a href="#" id="logout">Cerrar sesión</a></p>
   `;
 }
 
 function viewStudentDetail(id) {
   document.querySelector(".app")?.classList.add("wide");
+  freshClass();
   const stu = klass.students.find((s) => s.id === id);
   if (!stu) return "<p>No está.</p>";
   const st = studentStatus(stu);
@@ -235,12 +289,12 @@ function viewStudentDetail(id) {
       <td>${rv ? rv.percent + "%" : "—"}</td>
       <td>${ok ? "sí" : "no"}</td>
       <td>${formatTime((stu.timeMs || {})[L.id])}</td>
-      <td><input class="paper" data-paper="${L.id}" type="text" inputmode="numeric" placeholder="—" value="${paper ?? ""}"></td>
+      <td><input class="paper" data-paper="${L.id}" type="text" inputmode="decimal" placeholder="—" maxlength="8" value="${esc(paper ?? "")}"></td>
     </tr>`;
   }).join("");
   return `
-    <p class="kicker">${stu.code}</p>
-    <h1>${stu.name}</h1>
+    <p class="kicker">${esc(stu.code)}</p>
+    <h1>${esc(stu.name)}</h1>
     <p class="lede">${st.ready ? "Tarea lista." : "Faltan: " + (st.missing.map(lessonLabel).join(", ") || "sin tarea asignada")}. Tiempo total: ${formatTime(st.time)}.</p>
     <div class="table-wrap">
       <table class="gradebook">
@@ -250,7 +304,7 @@ function viewStudentDetail(id) {
     </div>
     <p class="tiny">“Examen de clase” es la nota del papel que hacen delante de usted. Se guarda al escribirla.</p>
     <button class="btn secondary" data-view="teacher">Volver al escritorio</button>
-    <button class="btn terra" id="drop-stu" data-drop="${stu.id}">Quitar alumno</button>
+    <button class="btn terra" id="drop-stu" data-drop="${esc(stu.id)}">Quitar alumno</button>
   `;
 }
 
@@ -259,7 +313,7 @@ function viewSlip() {
   const passed = Object.entries(state.scores || {}).filter(([, v]) => v.passed);
   return `
     <p class="kicker">Ficha del alumno</p>
-    <h1>${state.name || "Alumno"}</h1>
+    <h1>${esc(state.name || "Alumno")}</h1>
     <p class="lede">Enséñele esto al profesor antes de clase, o cópielo para que él lo pegue en el escritorio.</p>
     <p><strong>Lecciones aprobadas:</strong> ${passed.map(([id, v]) => `${lessonLabel(id)} ${v.percent}%`).join(" · ") || "ninguna todavía"}</p>
     <textarea id="slip" rows="5" readonly>${pack}</textarea>
@@ -277,35 +331,44 @@ function csvClass() {
   const lines = [head.join(",")];
   klass.students.forEach((stu) => {
     const totalMin = Math.round(Object.values(stu.timeMs || {}).reduce((a, b) => a + (b || 0), 0) / 60000);
-    const row = [csvSafe(stu.last || ""), csvSafe(stu.first || stu.name), stu.code, totalMin];
+    const row = [csvSafe(stu.last || ""), csvSafe(stu.first || stu.name), csvSafe(stu.code), totalMin];
     book().lessons.forEach((L) => {
       row.push(stu.scores?.[L.id]?.percent ?? "");
       row.push(stu.scores?.[L.id + "#review"]?.percent ?? "");
       row.push(Math.round(((stu.timeMs || {})[L.id] || 0) / 60000));
-      row.push(stu.paper?.[L.id] ?? "");
+      // Teachers type grades like "8,5"; unquoted, that comma split the row into an extra column.
+      row.push(csvSafe(stu.paper?.[L.id] ?? ""));
     });
     lines.push(row.join(","));
   });
-  return lines.join("\n");
+  return lines.join("\r\n");
 }
-function csvSafe(s) { return `"${String(s || "").replaceAll('"', '""')}"`; }
+function csvSafe(s) {
+  let v = String(s ?? "");
+  // A cell that starts with = + - @ is run as a formula by Excel and Sheets.
+  if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+  return `"${v.replaceAll('"', '""')}"`;
+}
 
 function bindTeacher() {
   document.querySelector(".app")?.classList.add("wide");
   $("#save-class")?.addEventListener("click", () => {
+    freshClass();
     klass.name = $("#class-name").value.trim() || "Puente";
     saveClass();
     render();
   });
   $("#add-stu")?.addEventListener("click", () => {
-    const name = ($("#new-stu").value || "").trim();
+    const name = ($("#new-stu").value || "").trim().slice(0, 80);
     if (!name) return;
+    freshClass();
     klass.students.push({ id: uid(), name, code: code4(), scores: {}, paper: {} });
     saveClass();
     render();
   });
   $("#save-assign")?.addEventListener("click", () => {
     const due = $("#due").value;
+    freshClass();
     klass.assignments = $$("[data-assign]:checked").map((el) => ({ lessonId: el.dataset.assign, due }));
     saveClass();
     render();
@@ -313,10 +376,14 @@ function bindTeacher() {
   $("#eat-packet")?.addEventListener("click", () => {
     const packet = decodePacket($("#packet").value);
     const msg = $("#packet-msg");
-    if (!packet || !packet.scores) { msg.textContent = "No pude leer esa ficha."; return; }
+    if (!isPlain(packet) || !isPlain(packet.scores)) { msg.textContent = "No pude leer esa ficha."; return; }
+    Object.values(packet.scores).forEach((sc) => { if (isPlain(sc)) delete sc.review; });
+    if (!isPlain(packet.timeMs)) packet.timeMs = {};
+    ["name", "first", "last", "code"].forEach((k) => { if (packet[k] != null) packet[k] = String(packet[k]).slice(0, 80); });
+    freshClass();
     let stu = klass.students.find((s) => packet.code && s.code === packet.code);
     if (!stu && packet.name) {
-      stu = klass.students.find((s) => s.name.toLowerCase() === String(packet.name).toLowerCase());
+      stu = klass.students.find((s) => (s.name || "").toLowerCase() === String(packet.name).toLowerCase());
     }
     if (!stu) {
       stu = { id: uid(), name: packet.name || "Alumno", code: packet.code || code4(), scores: {}, paper: {} };
@@ -335,16 +402,19 @@ function bindTeacher() {
   }));
   $("#export-csv")?.addEventListener("click", (e) => {
     e.preventDefault();
-    const blob = new Blob([csvClass()], { type: "text/csv" });
+    // The byte-order mark makes Excel read accents (José, Núñez) as UTF-8 instead of garbling them.
+    const blob = new Blob(["\uFEFF" + csvClass()], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "puente-notas.csv";
     a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   });
 }
 
 function bindStudentDetail() {
   $$("[data-paper]").forEach((inp) => inp.addEventListener("input", () => {
+    freshClass();
     const stu = klass.students.find((s) => s.id === state.teacherStudent);
     if (!stu) return;
     stu.paper = stu.paper || {};
@@ -354,6 +424,9 @@ function bindStudentDetail() {
     saveClass();
   }));
   $("#drop-stu")?.addEventListener("click", () => {
+    const who = klass.students.find((s) => s.id === state.teacherStudent);
+    if (!confirm(`¿Quitar a ${who?.name || "este alumno"} de la lista? Si vuelve a entrar en este aparato, reaparece.`)) return;
+    freshClass();
     klass.students = klass.students.filter((s) => s.id !== state.teacherStudent);
     saveClass();
     state.view = "teacher";
@@ -370,10 +443,17 @@ function bindSlip() {
   });
 }
 
+window.addEventListener("storage", (e) => {
+  if (e.key === CLASS_KEY || e.key === null) freshClass();
+});
+
 window.PUENTE_CLASSROOM = {
   syncLocalStudentIntoClass,
   saveAccountFromState,
   loadAccount,
+  deleteAccount,
+  hasTeacherPin,
+  checkTeacherPin,
   enrollStudent,
   slugName,
   fullName,
