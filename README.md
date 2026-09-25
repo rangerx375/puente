@@ -25,6 +25,6 @@ Student accounts, scores, time-on-lesson, and the teacher roster are stored
 in the browser's `localStorage`. That data stays on the device and browser
 where it was entered; it does not sync between computers.
 
-Live site: _pending_
+Live site: https://puente-sooty.vercel.app
 
 To run locally, open `index.html`.
