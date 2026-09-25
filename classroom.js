@@ -1,467 +1,331 @@
-const CLASS_KEY = "puente.class.v1";
-const ACCOUNTS_KEY = "puente.accounts.v1";
+// Teacher desk: classes and their join codes, the roster, each student's strengths and
+// weaknesses, practice sets, homework, paper grades and CSV export. All data comes from /api/teacher/*.
+(function () {
+  const api = (...a) => window.PUENTE_API(...a);
+  const esc = (s) => window.PUENTE_ESC(s);
+  const ui = () => window.PUENTE_UI;
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
 
-function defaultClass() {
-  return { name: "Puente", pin: "", students: [], assignments: [] };
-}
+  const t = { overview: null, classId: null, studentId: null, detail: null, msg: "", busy: false, showPw: false };
 
-const isPlain = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-const esc = (s) => window.PUENTE_ESC(s);
-
-function loadClass() {
-  let raw = null;
-  try { raw = JSON.parse(localStorage.getItem(CLASS_KEY) || "{}"); } catch { raw = null; }
-  const k = { ...defaultClass(), ...(isPlain(raw) ? raw : {}) };
-  if (!Array.isArray(k.students)) k.students = [];
-  if (!Array.isArray(k.assignments)) k.assignments = [];
-  k.students = k.students.filter(isPlain);
-  k.students.forEach((s) => {
-    if (!isPlain(s.scores)) s.scores = {};
-    Object.values(s.scores).forEach((sc) => { if (isPlain(sc)) delete sc.review; });
-    if (!s.id) s.id = uid();
-    if (!s.name) s.name = fullName(s.first, s.last) || "Alumno";
-  });
-  return k;
-}
-function saveClass() {
-  try { localStorage.setItem(CLASS_KEY, JSON.stringify(klass)); }
-  catch { window.PUENTE_STORAGE_FAILED?.(); }
-}
-// Re-read before every change: a student tab and a teacher tab on one computer share this record,
-// and writing a stale in-memory copy used to erase the other tab's changes.
-function freshClass() { klass = loadClass(); }
-let klass = loadClass();
-
-function loadAccounts() {
-  try {
-    const m = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || "{}");
-    return isPlain(m) ? m : {};
-  } catch { return {}; }
-}
-function saveAccounts(map) { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(map)); }
-
-// Accent- and case-insensitive, so "Maria Lopez" and "María López" are the same student.
-function slugName(first, last) {
-  const clean = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-  return `${clean(first)}.${clean(last)}`.replace(/\s+/g, "");
-}
-// Older saves are keyed by the exact accented spelling ("maría.lópez"); find them however the name is typed now.
-const deaccent = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-function legacyKeys(map, first, last) {
-  const key = slugName(first, last);
-  return Object.keys(map).filter((k) => k !== key && deaccent(k) === key);
-}
-function fullName(first, last) {
-  return `${(first || "").trim()} ${(last || "").trim()}`.trim();
-}
-function formatTime(ms) {
-  const s = Math.max(0, Math.round((ms || 0) / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (h) return `${h} h ${m} min`;
-  if (m) return `${m} min`;
-  return `${s} s`;
-}
-function bothPassed(scores, id) {
-  return !!(scores?.[id]?.passed && scores?.[id + "#review"]?.passed);
-}
-
-function enrollStudent(first, last, code) {
-  const name = fullName(first, last);
-  if (!name) return null;
-  freshClass();
-  const key = slugName(first, last);
-  const bare = (s) => deaccent(s).toLowerCase();
-  let stu = klass.students.find((s) => s.account === key || deaccent(s.account) === key || bare(s.name) === bare(name));
-  if (!stu) {
-    stu = { id: uid(), account: key, first, last, name, code: code || code4(), scores: {}, paper: {}, timeMs: {} };
-    klass.students.push(stu);
-  } else {
-    stu.first = first;
-    stu.last = last;
-    stu.name = name;
-    stu.account = key;
-    if (code) stu.code = code;
+  const lessons = () => window.PUENTE_BOOK.lessons;
+  const label = (id) => ui().lessonLabel(id);
+  function formatTime(ms) {
+    const s = Math.max(0, Math.round((ms || 0) / 1000));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h) return `${h} h ${m} min`;
+    if (m) return `${m} min`;
+    return `${s} s`;
   }
-  saveClass();
-  return stu;
-}
+  const when = (d) => (d ? new Date(d).toLocaleDateString("es", { day: "numeric", month: "short" }) : "—");
+  const refresh = () => { if (typeof render === "function") render(); };
 
-function saveAccountFromState(st) {
-  // Signed-out state still carries the last name typed on the login screen; never write it over an account.
-  if (!st.onboarded || !st.firstName || !st.lastName || st.role === "teacher") return;
-  const map = loadAccounts();
-  const key = slugName(st.firstName, st.lastName);
-  legacyKeys(map, st.firstName, st.lastName).forEach((k) => { delete map[k]; });
-  map[key] = {
-    first: st.firstName,
-    last: st.lastName,
-    pin: st.pin || "",
-    code: st.studentCode,
-    scores: st.scores || {},
-    answers: st.answers || {},
-    timeMs: st.timeMs || {},
-    doneLessons: st.doneLessons || {},
-    lesson: st.lesson || 0,
-    page: st.page || 0
-  };
-  saveAccounts(map);
-  const stu = enrollStudent(st.firstName, st.lastName, st.studentCode);
-  if (stu) {
-    stu.scores = { ...(stu.scores || {}), ...(st.scores || {}) };
-    stu.timeMs = { ...(stu.timeMs || {}), ...(st.timeMs || {}) };
-    stu.lastSync = Date.now();
-    saveClass();
-  }
-}
-
-function loadAccount(first, last, pin) {
-  const map = loadAccounts();
-  const acc = map[slugName(first, last)] || map[legacyKeys(map, first, last)[0]];
-  if (!isPlain(acc)) return { ok: "new" };
-  if ((acc.pin || "") !== (pin || "")) return { ok: false, error: "Clave incorrecta." };
-  return { ok: true, acc };
-}
-
-function deleteAccount(first, last) {
-  const map = loadAccounts();
-  delete map[slugName(first, last)];
-  legacyKeys(map, first, last).forEach((k) => { delete map[k]; });
-  try { saveAccounts(map); } catch {}
-}
-
-function hasTeacherPin() { return !!loadClass().pin; }
-function checkTeacherPin(pin) {
-  freshClass();
-  if (!klass.pin) {
-    if (pin.length < 4) return { ok: false, error: "La clave del profesor necesita al menos 4 caracteres." };
-    klass.pin = pin;
-    saveClass();
-    return { ok: true, created: true };
-  }
-  return klass.pin === pin ? { ok: true } : { ok: false, error: "Clave del profesor incorrecta." };
-}
-
-function uid() { return "s" + Math.random().toString(36).slice(2, 8); }
-function code4() { return Math.random().toString(36).slice(2, 6).toUpperCase(); }
-
-function lessonById(id) {
-  return book().lessons.find((L) => L.id === id);
-}
-function lessonLabel(id) {
-  const L = lessonById(id);
-  return L ? `${L.level}.${L.num}` : id;
-}
-
-function encodePacket(obj) {
-  return "PUENTE." + btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-}
-function decodePacket(text) {
-  const raw = (text || "").trim();
-  const body = raw.startsWith("PUENTE.") ? raw.slice(7) : raw;
-  try { return JSON.parse(decodeURIComponent(escape(atob(body)))); }
-  catch {
-    try { return JSON.parse(raw); }
-    catch { return null; }
-  }
-}
-
-function studentPacket() {
-  return {
-    v: 2,
-    first: state.firstName,
-    last: state.lastName,
-    name: fullName(state.firstName, state.lastName) || state.name,
-    code: state.studentCode || "",
-    scores: state.scores || {},
-    timeMs: state.timeMs || {},
-    ts: Date.now()
-  };
-}
-
-function applyPacketToStudent(stu, packet) {
-  stu.scores = { ...(stu.scores || {}), ...(packet.scores || {}) };
-  stu.timeMs = { ...(stu.timeMs || {}), ...(packet.timeMs || {}) };
-  stu.lastSync = packet.ts || Date.now();
-  if (packet.first) stu.first = packet.first;
-  if (packet.last) stu.last = packet.last;
-  if (packet.name) stu.name = packet.name;
-}
-
-function syncLocalStudentIntoClass() {
-  saveAccountFromState(state);
-}
-
-function assignedIds() {
-  const fromClass = klass.assignments.map((a) => a.lessonId);
-  return [...new Set(fromClass)];
-}
-
-function dueDate() {
-  const dates = klass.assignments.map((a) => a.due).filter(Boolean).sort();
-  return dates[0] || "";
-}
-
-function studentStatus(stu) {
-  const assigned = assignedIds();
-  const scores = stu.scores || {};
-  const passed = assigned.filter((id) => bothPassed(scores, id));
-  const missing = assigned.filter((id) => !bothPassed(scores, id));
-  const due = dueDate();
-  const late = !!(due && missing.length && Date.now() > new Date(due + "T23:59:59").getTime());
-  const time = Object.values(stu.timeMs || {}).reduce((a, b) => a + (b || 0), 0);
-  return { assigned, passed, missing, due, late, time, ready: assigned.length > 0 && missing.length === 0 };
-}
-
-function viewTeacher() {
-  document.querySelector(".app")?.classList.add("wide");
-  freshClass();
-  const assigned = assignedIds();
-  const due = dueDate();
-  const rows = klass.students.map((stu) => {
-    const st = studentStatus(stu);
-    const last = Object.entries(stu.scores || {}).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0))[0];
-    const lastTxt = last ? `${lessonLabel(last[0])} · ${last[1].percent}%` : "—";
-    const mark = st.ready ? "listo" : st.late ? "atrasado" : st.assigned.length ? "pendiente" : "sin tarea";
-    return `<tr class="${st.late ? "late" : st.ready ? "ready" : ""}">
-      <td><button class="linkish" data-student="${esc(stu.id)}">${esc(stu.name)}</button><div class="tiny">${esc(stu.code)}</div></td>
-      <td>${st.passed.length}/${st.assigned.length || "—"}</td>
-      <td>${st.missing.map(lessonLabel).join(", ") || "—"}</td>
-      <td>${lastTxt}</td>
-      <td>${formatTime(st.time)}</td>
-      <td><span class="chip ${st.late ? "terra" : st.ready ? "" : "quiet"}">${mark}</span></td>
-    </tr>`;
-  }).join("");
-  return `
-    <p class="kicker">Escritorio del profesor</p>
-    <h1>${esc(klass.name || "Clase")}</h1>
-    <p class="lede">Tarea actual: ${assigned.length ? assigned.map(lessonLabel).join(", ") : "ninguna lección asignada"}${due ? " · para el " + esc(due) : ""}.</p>
-    <div class="row wrap">
-      <input id="class-name" type="text" value="${esc(klass.name || "")}" placeholder="Nombre de la clase" maxlength="60">
-      <button class="btn secondary" id="save-class">Guardar nombre</button>
-    </div>
-    <h3 class="subhead">Alumnos</h3>
-    <div class="table-wrap">
-      <table class="gradebook">
-        <thead><tr><th>Alumno</th><th>Hechas</th><th>Faltan</th><th>Último examen</th><th>Tiempo</th><th>Estado</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="6">Aún no hay alumnos. Aparecen solos al entrar con nombre y apellido.</td></tr>`}</tbody>
-      </table>
-    </div>
-    <div class="row wrap">
-      <input id="new-stu" type="text" placeholder="Nombre del alumno">
-      <button class="btn" id="add-stu">Añadir alumno</button>
-    </div>
-    <h3 class="subhead">Tarea para la próxima clase</h3>
-    <label class="field">Fecha de clase
-      <input id="due" type="date" value="${esc(due)}">
-    </label>
-    <div class="assign-grid">
-      ${book().lessons.map((L) => `
-        <label class="check"><input type="checkbox" data-assign="${L.id}" ${assigned.includes(L.id) ? "checked" : ""}>
-          ${L.level}.${L.num} ${L.title}
-        </label>`).join("")}
-    </div>
-    <button class="btn full" id="save-assign">Guardar tarea</button>
-    <h3 class="subhead">Pegar ficha del alumno</h3>
-    <p class="tiny">El alumno pulsa “Ficha para el profesor”, copia el código, y usted lo pega aquí. Si trabajan en este mismo aparato, la ficha entra sola al terminar un examen.</p>
-    <textarea id="packet" rows="3" placeholder="PUENTE.…"></textarea>
-    <button class="btn secondary" id="eat-packet">Registrar ficha</button>
-    <p id="packet-msg" class="tiny"></p>
-    <p class="tiny"><a href="#" data-view="toc">Volver al libro</a> · <a href="#" id="export-csv">Descargar notas (CSV)</a> · <a href="#" id="logout">Cerrar sesión</a></p>
-  `;
-}
-
-function viewStudentDetail(id) {
-  document.querySelector(".app")?.classList.add("wide");
-  freshClass();
-  const stu = klass.students.find((s) => s.id === id);
-  if (!stu) return "<p>No está.</p>";
-  const st = studentStatus(stu);
-  const lines = book().lessons.map((L) => {
-    const sc = (stu.scores || {})[L.id];
-    const rv = (stu.scores || {})[L.id + "#review"];
-    const paper = (stu.paper || {})[L.id];
-    const assigned = st.assigned.includes(L.id);
-    const ok = bothPassed(stu.scores, L.id);
-    return `<tr class="${ok ? "ready" : assigned ? "late" : ""}">
-      <td>${L.level}.${L.num} ${L.title}</td>
-      <td>${sc ? sc.percent + "%" : "—"}</td>
-      <td>${rv ? rv.percent + "%" : "—"}</td>
-      <td>${ok ? "sí" : "no"}</td>
-      <td>${formatTime((stu.timeMs || {})[L.id])}</td>
-      <td><input class="paper" data-paper="${L.id}" type="text" inputmode="decimal" placeholder="—" maxlength="8" value="${esc(paper ?? "")}"></td>
-    </tr>`;
-  }).join("");
-  return `
-    <p class="kicker">${esc(stu.code)}</p>
-    <h1>${esc(stu.name)}</h1>
-    <p class="lede">${st.ready ? "Tarea lista." : "Faltan: " + (st.missing.map(lessonLabel).join(", ") || "sin tarea asignada")}. Tiempo total: ${formatTime(st.time)}.</p>
-    <div class="table-wrap">
-      <table class="gradebook">
-        <thead><tr><th>Lección</th><th>Examen</th><th>Repaso 50</th><th>Pasa</th><th>Tiempo</th><th>Papel</th></tr></thead>
-        <tbody>${lines}</tbody>
-      </table>
-    </div>
-    <p class="tiny">“Examen de clase” es la nota del papel que hacen delante de usted. Se guarda al escribirla.</p>
-    <button class="btn secondary" data-view="teacher">Volver al escritorio</button>
-    <button class="btn terra" id="drop-stu" data-drop="${esc(stu.id)}">Quitar alumno</button>
-  `;
-}
-
-function viewSlip() {
-  const pack = encodePacket(studentPacket());
-  const passed = Object.entries(state.scores || {}).filter(([, v]) => v.passed);
-  return `
-    <p class="kicker">Ficha del alumno</p>
-    <h1>${esc(state.name || "Alumno")}</h1>
-    <p class="lede">Enséñele esto al profesor antes de clase, o cópielo para que él lo pegue en el escritorio.</p>
-    <p><strong>Lecciones aprobadas:</strong> ${passed.map(([id, v]) => `${lessonLabel(id)} ${v.percent}%`).join(" · ") || "ninguna todavía"}</p>
-    <textarea id="slip" rows="5" readonly>${pack}</textarea>
-    <button class="btn full" id="copy-slip">Copiar ficha</button>
-    <p id="slip-msg" class="tiny"></p>
-    <button class="btn secondary" data-view="toc">Volver al índice</button>
-  `;
-}
-
-function csvClass() {
-  const head = ["last", "first", "code", "time_total_min",
-    ...book().lessons.flatMap((L) => [
-      `${L.level}.${L.num}_exam`, `${L.level}.${L.num}_review`, `${L.level}.${L.num}_min`, `${L.level}.${L.num}_paper`
-    ])];
-  const lines = [head.join(",")];
-  klass.students.forEach((stu) => {
-    const totalMin = Math.round(Object.values(stu.timeMs || {}).reduce((a, b) => a + (b || 0), 0) / 60000);
-    const row = [csvSafe(stu.last || ""), csvSafe(stu.first || stu.name), csvSafe(stu.code), totalMin];
-    book().lessons.forEach((L) => {
-      row.push(stu.scores?.[L.id]?.percent ?? "");
-      row.push(stu.scores?.[L.id + "#review"]?.percent ?? "");
-      row.push(Math.round(((stu.timeMs || {})[L.id] || 0) / 60000));
-      // Teachers type grades like "8,5"; unquoted, that comma split the row into an extra column.
-      row.push(csvSafe(stu.paper?.[L.id] ?? ""));
-    });
-    lines.push(row.join(","));
-  });
-  return lines.join("\r\n");
-}
-function csvSafe(s) {
-  let v = String(s ?? "");
-  // A cell that starts with = + - @ is run as a formula by Excel and Sheets.
-  if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
-  return `"${v.replaceAll('"', '""')}"`;
-}
-
-function bindTeacher() {
-  document.querySelector(".app")?.classList.add("wide");
-  $("#save-class")?.addEventListener("click", () => {
-    freshClass();
-    klass.name = $("#class-name").value.trim() || "Puente";
-    saveClass();
-    render();
-  });
-  $("#add-stu")?.addEventListener("click", () => {
-    const name = ($("#new-stu").value || "").trim().slice(0, 80);
-    if (!name) return;
-    freshClass();
-    klass.students.push({ id: uid(), name, code: code4(), scores: {}, paper: {} });
-    saveClass();
-    render();
-  });
-  $("#save-assign")?.addEventListener("click", () => {
-    const due = $("#due").value;
-    freshClass();
-    klass.assignments = $$("[data-assign]:checked").map((el) => ({ lessonId: el.dataset.assign, due }));
-    saveClass();
-    render();
-  });
-  $("#eat-packet")?.addEventListener("click", () => {
-    const packet = decodePacket($("#packet").value);
-    const msg = $("#packet-msg");
-    if (!isPlain(packet) || !isPlain(packet.scores)) { msg.textContent = "No pude leer esa ficha."; return; }
-    Object.values(packet.scores).forEach((sc) => { if (isPlain(sc)) delete sc.review; });
-    if (!isPlain(packet.timeMs)) packet.timeMs = {};
-    ["name", "first", "last", "code"].forEach((k) => { if (packet[k] != null) packet[k] = String(packet[k]).slice(0, 80); });
-    freshClass();
-    let stu = klass.students.find((s) => packet.code && s.code === packet.code);
-    if (!stu && packet.name) {
-      stu = klass.students.find((s) => (s.name || "").toLowerCase() === String(packet.name).toLowerCase());
+  async function run(fn, okMsg) {
+    if (t.busy) return;
+    t.busy = true;
+    t.msg = "";
+    try {
+      await fn();
+      if (okMsg) t.msg = okMsg;
+    } catch (e) {
+      t.msg = e.message;
+    } finally {
+      t.busy = false;
+      refresh();
     }
-    if (!stu) {
-      stu = { id: uid(), name: packet.name || "Alumno", code: packet.code || code4(), scores: {}, paper: {} };
-      klass.students.push(stu);
+  }
+
+  async function loadOverview(classId) {
+    try {
+      t.overview = await api("GET", `teacher/overview${classId ? `?class=${classId}` : ""}`);
+      t.classId = t.overview.cls?.id || null;
+    } catch (e) {
+      t.msg = e.message;
+      t.overview = t.overview || { classes: [], roster: [], homework: [] };
     }
-    applyPacketToStudent(stu, packet);
-    saveClass();
-    msg.textContent = `Registrado: ${stu.name}.`;
-    render();
-  });
-  $$("[data-student]").forEach((b) => b.addEventListener("click", () => {
+    refresh();
+  }
+  async function loadDetail() {
+    const id = t.studentId;
+    try {
+      const d = await api("GET", `teacher/students/${id}`);
+      if (t.studentId === id) t.detail = d;
+    } catch (e) {
+      t.msg = e.message;
+      state.view = "teacher";
+    }
+    refresh();
+  }
+
+  function openStudent(id, fresh = true) {
+    t.studentId = Number(id);
+    if (fresh || t.detail?.student.id !== t.studentId) t.detail = null;
     state.view = "student-detail";
-    state.teacherStudent = b.dataset.student;
-    save();
-    render();
-  }));
-  $("#export-csv")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    // The byte-order mark makes Excel read accents (José, Núñez) as UTF-8 instead of garbling them.
-    const blob = new Blob(["\uFEFF" + csvClass()], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "puente-notas.csv";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  });
-}
+  }
 
-function bindStudentDetail() {
-  $$("[data-paper]").forEach((inp) => inp.addEventListener("input", () => {
-    freshClass();
-    const stu = klass.students.find((s) => s.id === state.teacherStudent);
-    if (!stu) return;
-    stu.paper = stu.paper || {};
-    const v = inp.value.trim();
-    if (v === "") delete stu.paper[inp.dataset.paper];
-    else stu.paper[inp.dataset.paper] = v;
-    saveClass();
-  }));
-  $("#drop-stu")?.addEventListener("click", () => {
-    const who = klass.students.find((s) => s.id === state.teacherStudent);
-    if (!confirm(`¿Quitar a ${who?.name || "este alumno"} de la lista? Si vuelve a entrar en este aparato, reaparece.`)) return;
-    freshClass();
-    klass.students = klass.students.filter((s) => s.id !== state.teacherStudent);
-    saveClass();
-    state.view = "teacher";
-    save();
-    render();
-  });
-}
+  // ---------- desk
 
-function bindSlip() {
-  $("#copy-slip")?.addEventListener("click", async () => {
-    const text = $("#slip").value;
-    try { await navigator.clipboard.writeText(text); $("#slip-msg").textContent = "Copiada."; }
-    catch { $("#slip").select(); $("#slip-msg").textContent = "Copie con Ctrl+C."; }
-  });
-}
+  function viewDesk() {
+    const o = t.overview;
+    if (!o) { setTimeout(() => loadOverview(t.classId), 0); return `<p class="tiny">Cargando el escritorio…</p>`; }
+    const cls = o.cls;
+    const msg = t.msg ? `<p class="tiny" role="status">${esc(t.msg)}</p>` : "";
+    if (!cls) {
+      return `<p class="kicker">Escritorio del profesor</p><h1>Sin clases</h1>${msg}
+        <div class="row wrap"><input id="new-class" type="text" placeholder="Nombre de la clase" maxlength="40"><button class="btn" id="add-class">Crear clase</button></div>
+        <p class="tiny"><a href="#" id="logout">Cerrar sesión</a></p>`;
+    }
+    const hwIds = o.homework.map((h) => h.lesson_id);
+    const due = o.homework.map((h) => h.due).filter(Boolean).sort()[0] || "";
+    const rows = o.roster.map((s) => {
+      const mark = s.ready ? "listo" : s.late ? "atrasado" : o.homework.length ? "pendiente" : "sin tarea";
+      const last = s.lastExam ? `${esc(label(s.lastExam.lessonId))}${s.lastExam.source === "review" ? " (repaso)" : ""} · ${s.lastExam.percent}%` : "—";
+      return `<tr class="${s.late ? "late" : s.ready ? "ready" : ""}">
+        <td><button class="linkish" data-student="${s.id}">${esc(s.first)} ${esc(s.last)}</button></td>
+        <td>${o.homework.length ? `${s.homeworkPassed.length}/${o.homework.length}` : "—"}</td>
+        <td>${last}</td>
+        <td>${s.weakest ? `${esc(s.weakest.label)} <small>${Math.round(s.weakest.mastery * 100)}%</small>` : "—"}</td>
+        <td>${s.practiceDone} hechas · ${s.practiceOpen} abiertas</td>
+        <td>${formatTime(s.timeMs)}</td>
+        <td>${when(s.lastSeen)}</td>
+        <td><span class="chip ${s.late ? "terra" : s.ready ? "" : "quiet"}">${mark}</span></td>
+      </tr>`;
+    }).join("");
+    return `
+      <p class="kicker">Escritorio del profesor</p>
+      <div class="row wrap">
+        <h1 style="margin:0">${esc(cls.name)}</h1>
+        ${o.classes.length > 1 ? `<select id="class-pick" aria-label="Clase">${o.classes.map((c) =>
+          `<option value="${c.id}" ${c.id === cls.id ? "selected" : ""}>${esc(c.name)} (${c.students})${c.archived ? " · archivada" : ""}</option>`).join("")}</select>` : ""}
+      </div>
+      <div class="class-code">
+        <span>Código de la clase</span>
+        <b>${esc(cls.code)}</b>
+        <small>${cls.archived ? "Clase archivada: nadie puede entrar." : "Los alumnos entran con este código, su nombre y una clave que eligen."}</small>
+      </div>
+      ${msg}
+      <h3 class="subhead">Alumnos (${o.roster.length})</h3>
+      <div class="table-wrap">
+        <table class="gradebook">
+          <thead><tr><th>Alumno</th><th>Tarea</th><th>Último examen</th><th>Punto débil</th><th>Práctica</th><th>Tiempo</th><th>Visto</th><th>Estado</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="8">Aún no hay alumnos. Aparecen al entrar con el código ${esc(cls.code)}.</td></tr>`}</tbody>
+        </table>
+      </div>
+      <h3 class="subhead">Tarea de clase</h3>
+      <p class="tiny">Las lecciones que toda la clase debe aprobar (examen y repaso) para la fecha.</p>
+      <label class="field">Fecha
+        <input id="due" type="date" value="${esc(due)}">
+      </label>
+      <div class="assign-grid">
+        ${lessons().map((L) => `
+          <label class="check"><input type="checkbox" data-assign="${L.id}" ${hwIds.includes(L.id) ? "checked" : ""}>
+            ${L.level}.${L.num} ${L.title}
+          </label>`).join("")}
+      </div>
+      <button class="btn full" id="save-assign">Guardar tarea</button>
+      <h3 class="subhead">Clases</h3>
+      <div class="row wrap">
+        <input id="rename-class" type="text" value="${esc(cls.name)}" maxlength="40" aria-label="Nombre de la clase">
+        <button class="btn secondary" id="save-rename">Cambiar nombre</button>
+        <button class="btn secondary" id="archive-class">${cls.archived ? "Reactivar clase" : "Archivar clase"}</button>
+      </div>
+      <div class="row wrap">
+        <input id="new-class" type="text" placeholder="Nombre de la nueva clase" maxlength="40">
+        <button class="btn" id="add-class">Crear clase</button>
+      </div>
+      ${t.showPw ? `
+        <h3 class="subhead">Cambiar contraseña</h3>
+        <label class="field">Contraseña actual <input id="pw-cur" type="password" autocomplete="current-password"></label>
+        <label class="field">Nueva contraseña (8+ caracteres) <input id="pw-new" type="password" autocomplete="new-password"></label>
+        <button class="btn secondary" id="pw-save">Guardar contraseña</button>` : ""}
+      <p class="tiny">
+        <a href="/api/teacher/csv?class=${cls.id}" download="puente-notas.csv">Descargar notas (CSV)</a> ·
+        <a href="#" data-view="toc">Ver el libro</a> ·
+        <a href="#" id="pw-toggle">Cambiar contraseña</a> ·
+        <a href="#" id="logout">Cerrar sesión</a>
+      </p>`;
+  }
 
-window.addEventListener("storage", (e) => {
-  if (e.key === CLASS_KEY || e.key === null) freshClass();
-});
+  function bindDesk() {
+    $("#class-pick")?.addEventListener("change", (e) => { t.overview = null; t.classId = Number(e.target.value); t.msg = ""; refresh(); });
+    $$("[data-student]").forEach((b) => b.addEventListener("click", () => { openStudent(b.dataset.student); t.msg = ""; refresh(); window.scrollTo(0, 0); }));
+    $("#save-assign")?.addEventListener("click", () => run(async () => {
+      await api("PUT", "teacher/homework", { classId: t.classId, due: $("#due").value, lessons: $$("[data-assign]:checked").map((el) => el.dataset.assign) });
+      await loadOverview(t.classId);
+    }, "Tarea guardada."));
+    $("#add-class")?.addEventListener("click", () => run(async () => {
+      const c = await api("POST", "teacher/classes", { name: $("#new-class").value });
+      await loadOverview(c.id);
+    }, "Clase creada."));
+    $("#save-rename")?.addEventListener("click", () => run(async () => {
+      await api("PATCH", `teacher/classes/${t.classId}`, { name: $("#rename-class").value });
+      await loadOverview(t.classId);
+    }, "Nombre guardado."));
+    $("#archive-class")?.addEventListener("click", () => {
+      const archived = !!t.overview.cls.archived;
+      if (!archived && !confirm("¿Archivar esta clase? Sus alumnos no podrán entrar hasta que la reactive.")) return;
+      run(async () => {
+        await api("PATCH", `teacher/classes/${t.classId}`, { archived: !archived });
+        await loadOverview(t.classId);
+      });
+    });
+    $("#pw-toggle")?.addEventListener("click", (e) => { e.preventDefault(); t.showPw = !t.showPw; refresh(); });
+    $("#pw-save")?.addEventListener("click", () => run(async () => {
+      await api("POST", "teacher/password", { current: $("#pw-cur").value, next: $("#pw-new").value });
+      t.showPw = false;
+    }, "Contraseña cambiada."));
+  }
 
-window.PUENTE_CLASSROOM = {
-  syncLocalStudentIntoClass,
-  saveAccountFromState,
-  loadAccount,
-  deleteAccount,
-  hasTeacherPin,
-  checkTeacherPin,
-  enrollStudent,
-  slugName,
-  fullName,
-  formatTime,
-  viewTeacher,
-  viewStudentDetail,
-  viewSlip,
-  bindTeacher,
-  bindStudentDetail,
-  bindSlip
-};
+  // ---------- one student
+
+  function viewStudent() {
+    const d = t.detail;
+    if (!d) { setTimeout(loadDetail, 0); return `<p class="tiny">Cargando alumno…</p>`; }
+    const st = d.student;
+    const msg = t.msg ? `<p class="tiny" role="status">${esc(t.msg)}</p>` : "";
+    const totalTime = Object.values(d.timeMs || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+    const weakTopics = new Set(d.insights.weaknesses.map((w) => w.topic));
+    const practiceRows = d.practice.map((p) => `<tr class="${p.status === "done" ? "ready" : ""}">
+        <td>${esc(p.title)}${p.due ? `<div class="tiny">para el ${esc(p.due)}</div>` : ""}</td>
+        <td>${p.origin === "teacher" ? "profesor" : "automática"}</td>
+        <td>${p.n}</td>
+        <td>${p.status === "done" ? "hecha" : "abierta"}</td>
+        <td>${p.best_percent != null ? p.best_percent + "%" : "—"}</td>
+        <td>${when(p.created_at)}</td>
+        <td><button class="linkish" data-del-practice="${p.id}">Borrar</button></td>
+      </tr>`).join("");
+    const recent = d.recent.map((a) => `<tr>
+        <td>${when(a.created_at)}</td>
+        <td>${a.source === "practice" ? esc(a.practice_title || "Práctica") : `${esc(label(a.lesson_id))}${a.source === "review" ? " · repaso" : " · examen"}`}</td>
+        <td>${a.percent}%</td>
+        <td>${a.passed ? "sí" : "no"}</td>
+      </tr>`).join("");
+    const shown = lessons().filter((L, i) => i < d.openLessons || d.scores[L.id] || d.paper[L.id]);
+    const lessonRows = shown.map((L) => {
+      const sc = d.scores[L.id];
+      const rv = d.scores[L.id + "#review"];
+      return `<tr class="${sc?.passed && rv?.passed ? "ready" : ""}">
+        <td>${L.level}.${L.num} ${L.title}</td>
+        <td>${sc ? `${sc.percent}%${sc.attempts > 1 ? ` <small>(${sc.attempts} intentos)</small>` : ""}` : "—"}</td>
+        <td>${rv ? `${rv.percent}%` : "—"}</td>
+        <td>${formatTime(d.timeMs[L.id])}</td>
+        <td><input class="paper" data-paper="${L.id}" type="text" inputmode="decimal" placeholder="—" maxlength="8" value="${esc(d.paper[L.id] ?? "")}"></td>
+      </tr>`;
+    }).join("");
+    return `
+      <p class="kicker">${esc(st.class_name)}</p>
+      <h1>${esc(st.first)} ${esc(st.last)}</h1>
+      <p class="lede">Lecciones abiertas: ${d.openLessons} de ${lessons().length} · Tiempo en lecciones: ${formatTime(totalTime)} · Última vez: ${when(st.last_seen)}</p>
+      ${msg}
+      <h2>Fuerzas y debilidades</h2>
+      ${ui().masteryHtml(d.insights, { empty: "Todavía no ha respondido nada." })}
+      <h2>Práctica</h2>
+      <p class="tiny">Puente crea una práctica automática después de cada examen con los puntos débiles del alumno. Usted puede añadir otra.</p>
+      <div class="table-wrap">
+        <table class="gradebook">
+          <thead><tr><th>Práctica</th><th>Origen</th><th>Preguntas</th><th>Estado</th><th>Mejor</th><th>Creada</th><th></th></tr></thead>
+          <tbody>${practiceRows || `<tr><td colspan="7">Sin prácticas todavía.</td></tr>`}</tbody>
+        </table>
+      </div>
+      <details class="assign-box" ${d.practice.length ? "" : "open"}>
+        <summary>Asignar una práctica</summary>
+        <p class="tiny">Marque las lecciones. Las marcadas en rojo son sus puntos débiles.</p>
+        <div class="assign-grid">
+          ${lessons().map((L, i) => `
+            <label class="check ${weakTopics.has(L.id) ? "weak" : ""}"><input type="checkbox" data-topic="${L.id}" ${weakTopics.has(L.id) ? "checked" : ""}>
+              ${L.level}.${L.num} ${L.title}${i >= d.openLessons ? " <small>(aún cerrada)</small>" : ""}
+            </label>`).join("")}
+        </div>
+        <div class="row wrap">
+          <label class="field">Tipo de pregunta
+            <select id="p-skill">
+              <option value="">Cualquiera</option>
+              ${window.PUENTE_GRADING.SKILLS.map((s) => `<option value="${s}">${ui().SKILL_ES[s]}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field">Preguntas
+            <select id="p-size"><option>6</option><option selected>12</option><option>20</option></select>
+          </label>
+          <label class="field">Para el
+            <input id="p-due" type="date">
+          </label>
+        </div>
+        <label class="field">Título (opcional)
+          <input id="p-title" type="text" maxlength="80" placeholder="Tarea del profesor: …">
+        </label>
+        <button class="btn" id="p-create">Asignar práctica</button>
+      </details>
+      <h2>Actividad reciente</h2>
+      <div class="table-wrap">
+        <table class="gradebook">
+          <thead><tr><th>Fecha</th><th>Qué</th><th>Nota</th><th>Aprobado</th></tr></thead>
+          <tbody>${recent || `<tr><td colspan="4">Sin actividad todavía.</td></tr>`}</tbody>
+        </table>
+      </div>
+      <h2>Lecciones y notas de papel</h2>
+      <div class="table-wrap">
+        <table class="gradebook">
+          <thead><tr><th>Lección</th><th>Examen</th><th>Repaso</th><th>Tiempo</th><th>Papel</th></tr></thead>
+          <tbody>${lessonRows}</tbody>
+        </table>
+      </div>
+      <p class="tiny">“Papel” es la nota del examen escrito en clase. Se guarda al salir de la casilla.</p>
+      <h2>Cuenta</h2>
+      <div class="row wrap">
+        <input id="new-pin" type="text" maxlength="40" placeholder="Nueva clave (4+)" autocomplete="off" aria-label="Nueva clave">
+        <button class="btn secondary" id="reset-pin">Cambiar clave</button>
+        <button class="btn terra" id="drop-stu">Quitar alumno</button>
+      </div>
+      <p class="tiny">Cambiar la clave cierra la sesión del alumno en todos sus aparatos. Quitar al alumno borra todo su historial.</p>
+      <button class="btn secondary" data-view="teacher">Volver al escritorio</button>`;
+  }
+
+  function bindStudent() {
+    const id = t.studentId;
+    const reload = async () => { await loadDetail(); t.overview = null; };
+    $$("[data-del-practice]").forEach((b) => b.addEventListener("click", () => {
+      if (!confirm("¿Borrar esta práctica?")) return;
+      run(async () => { await api("DELETE", `teacher/assignments/${b.dataset.delPractice}`, {}); await reload(); }, "Práctica borrada.");
+    }));
+    $("#p-create")?.addEventListener("click", () => run(async () => {
+      const r = await api("POST", `teacher/students/${id}/practice`, {
+        topics: $$("[data-topic]:checked").map((el) => el.dataset.topic),
+        skill: $("#p-skill").value || null,
+        size: Number($("#p-size").value),
+        due: $("#p-due").value,
+        title: $("#p-title").value
+      });
+      await reload();
+      t.msg = `Práctica asignada (${r.n} preguntas).`;
+    }));
+    $$("[data-paper]").forEach((inp) => inp.addEventListener("change", () => run(async () => {
+      await api("PUT", `teacher/students/${id}/paper`, { lessonId: inp.dataset.paper, grade: inp.value });
+      t.detail.paper[inp.dataset.paper] = inp.value.trim();
+    }, "Nota guardada.")));
+    $("#reset-pin")?.addEventListener("click", () => run(async () => {
+      const pin = $("#new-pin").value.trim();
+      await api("POST", `teacher/students/${id}/pin`, { pin });
+      t.msg = `Clave cambiada. Dígale al alumno su nueva clave: ${pin}`;
+    }));
+    $("#drop-stu")?.addEventListener("click", () => {
+      const st = t.detail.student;
+      if (!confirm(`¿Quitar a ${st.first} ${st.last}? Se borra todo su historial y no se puede deshacer.`)) return;
+      run(async () => {
+        await api("DELETE", `teacher/students/${id}`, {});
+        t.detail = null;
+        t.overview = null;
+        state.view = "teacher";
+      }, "Alumno quitado.");
+    });
+  }
+
+  window.PUENTE_TEACHER = {
+    view: () => (state.view === "student-detail" ? viewStudent() : viewDesk()),
+    bind: () => (state.view === "student-detail" ? bindStudent() : bindDesk()),
+    openStudent,
+    currentStudent: () => t.studentId,
+    reset: () => { t.overview = null; t.detail = null; t.studentId = null; t.msg = ""; }
+  };
+})();

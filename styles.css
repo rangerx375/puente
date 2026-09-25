@@ -482,3 +482,88 @@ input.paper { width: 70px; padding: 6px 8px; border: 1px solid var(--line); bord
     box-shadow: none;
   }
 }
+
+/* Sign-in tabs */
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
+.tab {
+  border: 0;
+  background: none;
+  padding: 10px 14px;
+  font-weight: 650;
+  color: var(--muted);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}
+.tab.active { color: var(--teal-deep); border-bottom-color: var(--teal); }
+input[type="date"], select {
+  border: 1px solid var(--line);
+  background: var(--white);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+/* Messages */
+.notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--teal);
+  background: var(--teal-soft);
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+/* Student practice panel on the index */
+.practice-panel {
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+.practice-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.practice-card strong { display: block; }
+.practice-card small { color: var(--muted); }
+
+/* Strengths and weaknesses */
+.mastery-cols { display: grid; grid-template-columns: 1fr; gap: 8px 24px; }
+@media (min-width: 720px) { .mastery-cols { grid-template-columns: 1fr 1fr; } }
+.mastery-list { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; font-size: 15px; }
+.mastery-list small { color: var(--muted); }
+.lv {
+  display: inline-block;
+  min-width: 46px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+}
+.lv-strong { background: var(--teal-soft); color: var(--teal-deep); }
+.lv-mid { background: #F4EAD2; color: #7A5A1C; }
+.lv-weak { background: var(--terra-soft); color: #8A3A26; }
+.lv-few { background: var(--paper-deep); color: var(--muted); }
+.gradebook.mastery td:not(:first-child), .gradebook.mastery th:not(:first-child) { text-align: center; }
+
+/* Teacher desk */
+.class-code {
+  display: grid;
+  gap: 2px;
+  margin: 14px 0;
+  padding: 12px 16px;
+  border: 1px dashed var(--teal);
+  border-radius: 12px;
+  background: var(--white);
+}
+.class-code span { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.class-code b { font-family: var(--mono); font-size: 30px; letter-spacing: .12em; color: var(--teal-deep); }
+.class-code small { color: var(--muted); }
+.assign-box { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.assign-box summary { font-weight: 650; cursor: pointer; }
+.check.weak { color: #8A3A26; font-weight: 650; }

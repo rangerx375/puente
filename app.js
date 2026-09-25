@@ -1,109 +1,166 @@
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-const STORE_KEY = "puente.book.v7";
 const book = () => window.PUENTE_BOOK;
 const PASS = () => window.PUENTE_PASS || 80;
+const G = window.PUENTE_GRADING;
+const BANK = window.PUENTE_BANK.build(window.PUENTE_BOOK);
+const SKILL_ES = { choose: "Elegir", fill: "Completar", translate: "Traducir", order: "Ordenar" };
+const STUDENT_VIEWS = ["toc", "how", "lesson", "practice", "insights"];
+const TEACHER_VIEWS = ["teacher", "student-detail"];
 
-const defaultState = () => ({
+// Progress lives on the server; this is the in-memory copy for the person signed in on this page.
+const blankState = () => ({
+  booted: false,
+  role: null,
+  first: "",
+  last: "",
   name: "",
-  firstName: "",
-  lastName: "",
-  pin: "",
-  onboarded: false,
+  className: "",
+  classCode: "",
+  teacherName: "",
   view: "toc",
   lesson: 0,
   page: 0,
-  doneLessons: {},
-  scores: {},
+  qIndex: 0,
+  practiceId: null,
   answers: {},
   timeMs: {},
+  scores: {},
+  practice: [],
+  homework: [],
+  practiceSets: {},
+  practiceResults: {},
+  teacherResults: {},
+  insights: null,
+  notice: "",
   clockOn: 0,
-  spoken: 0,
-  qIndex: 0,
-  role: "student",
-  studentCode: "",
-  teacherStudent: ""
+  hasTeacher: null,
+  loginTab: "student"
 });
+let state = blankState();
 
 const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 
-function load() {
-  let raw = null;
-  try { raw = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch { raw = null; }
-  const st = { ...defaultState(), ...(isObj(raw) ? raw : {}) };
-  ["doneLessons", "scores", "answers", "timeMs"].forEach((k) => { if (!isObj(st[k])) st[k] = {}; });
-  stripReviewHtml(st.scores);
-  const lessons = book()?.lessons || [];
-  if (!Number.isInteger(st.lesson) || st.lesson < 0 || st.lesson >= lessons.length) { st.lesson = 0; st.page = 0; if (st.view === "lesson") st.view = "toc"; }
-  const pages = lessons[st.lesson]?.pages || [];
-  if (!Number.isInteger(st.page) || st.page < 0 || st.page >= pages.length) st.page = 0;
-  if (!Number.isInteger(st.qIndex) || st.qIndex < 0) st.qIndex = 0;
-  return st;
+// ---------- server calls
+
+async function api(method, path, body, opts = {}) {
+  let res;
+  try {
+    res = await fetch("/api/" + path, {
+      method,
+      credentials: "same-origin",
+      headers: body !== undefined ? { "Content-Type": "application/json" } : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      keepalive: !!opts.keepalive
+    });
+  } catch {
+    const err = new Error("Sin conexión. Revisa internet e inténtalo otra vez.");
+    err.status = 0;
+    throw err;
+  }
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  if (res.status === 401 && opts.auth !== false && state.role) sessionEnded();
+  if (!res.ok) {
+    const err = new Error(data?.error || "Error del servidor. Inténtalo otra vez.");
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+window.PUENTE_API = api;
+
+function sessionEnded() {
+  window.PUENTE_TEACHER?.reset();
+  const keepTab = state.loginTab;
+  state = blankState();
+  state.booted = true;
+  state.loginTab = keepTab;
+  state.notice = "Tu sesión terminó. Vuelve a entrar.";
+  render();
 }
 
-// Older versions kept a full HTML answer sheet inside every score. That filled the browser's
-// storage after a handful of students on one computer; the sheet is now rebuilt from `res`.
-function stripReviewHtml(scores) {
-  Object.values(scores || {}).forEach((sc) => { if (isObj(sc)) delete sc.review; });
+// Place, typed answers and reading time are saved to the server a moment after they change.
+// Scores are never sent from here: the server grades every exam itself.
+let saveTimer = 0;
+let saving = false;
+let dirty = false;
+function snapshot() {
+  return {
+    view: STUDENT_VIEWS.includes(state.view) ? state.view : "toc",
+    lesson: state.lesson,
+    page: state.page,
+    qIndex: state.qIndex,
+    practiceId: state.practiceId,
+    answers: state.answers,
+    timeMs: state.timeMs
+  };
 }
-
-// Another tab may have saved progress since this tab last read it. Keep the best of both.
-function mergeProgress(into, from) {
-  Object.entries(from.scores || {}).forEach(([k, b]) => {
-    const a = into.scores[k];
-    if (!isObj(b)) return;
-    if (!a) { into.scores[k] = b; return; }
-    const newer = (b.ts || 0) > (a.ts || 0) ? b : a;
-    into.scores[k] = { ...newer, passed: !!(a.passed || b.passed), attempts: Math.max(a.attempts || 0, b.attempts || 0) };
-  });
-  Object.entries(from.timeMs || {}).forEach(([k, v]) => { into.timeMs[k] = Math.max(into.timeMs[k] || 0, v || 0); });
-  Object.keys(from.doneLessons || {}).forEach((k) => { into.doneLessons[k] = true; });
+function save(opts = {}) {
+  if (state.role !== "student") return;
+  dirty = true;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, opts.now ? 0 : 1200);
 }
-const sameStudent = (a, b) => !!a.onboarded && !!b.onboarded && a.role === b.role
-  && window.PUENTE_CLASSROOM.slugName(a.firstName, a.lastName) === window.PUENTE_CLASSROOM.slugName(b.firstName, b.lastName);
-
-let storageWarned = false;
-function storageFailed() {
-  if (storageWarned) return;
-  storageWarned = true;
-  const bar = document.createElement("div");
+async function flush(keepalive = false) {
+  if (!dirty || state.role !== "student") return;
+  if (saving && !keepalive) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); return; }
+  saving = true;
+  dirty = false;
+  try {
+    await api("PUT", "progress", { state: snapshot() }, { keepalive });
+    setOffline(false);
+  } catch (e) {
+    dirty = true;
+    if (e.status !== 401) {
+      setOffline(true);
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(flush, 10000);
+    }
+  } finally {
+    saving = false;
+  }
+}
+function setOffline(on) {
+  let bar = $("#offline");
+  if (!on) { bar?.remove(); return; }
+  if (bar) return;
+  bar = document.createElement("div");
+  bar.id = "offline";
   bar.className = "storage-warn";
   bar.setAttribute("role", "alert");
-  bar.textContent = "Este navegador no deja guardar. Tu progreso se perderá al cerrar la página. (Sin espacio o modo privado.)";
+  bar.textContent = "Sin conexión. Tus respuestas se guardarán cuando vuelva internet.";
   document.body.prepend(bar);
 }
-window.PUENTE_STORAGE_FAILED = storageFailed;
 
-let syncTimer = 0;
-function save(opts = {}) {
-  try {
-    let stored = null;
-    try { stored = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch { stored = null; }
-    if (isObj(stored) && sameStudent(state, stored)) mergeProgress(state, stored);
-    localStorage.setItem(STORE_KEY, JSON.stringify({ ...state, clockOn: 0 }));
-  } catch { storageFailed(); }
-  clearTimeout(syncTimer);
-  if (opts.soon) { syncTimer = setTimeout(syncAccount, 800); return; }
-  syncAccount();
+function remember(key, value) {
+  try { if (value) localStorage.setItem(key, value); else localStorage.removeItem(key); } catch {}
 }
-function syncAccount() {
-  clearTimeout(syncTimer);
-  try { window.PUENTE_CLASSROOM?.saveAccountFromState?.(state); } catch { storageFailed(); }
+function recall(key) {
+  try { return localStorage.getItem(key) || ""; } catch { return ""; }
 }
-function lessonCleared(L) {
-  return !!(state.scores[L.id]?.passed && state.scores[L.id + "#review"]?.passed);
+
+// ---------- scores and locks
+
+const scoreOf = (id) => state.scores[id] || null;
+const lessonCleared = (L) => !!(state.scores[L.id]?.passed && state.scores[L.id + "#review"]?.passed);
+function openLessonCount() {
+  let n = 1;
+  while (n < book().lessons.length && lessonCleared(book().lessons[n - 1])) n += 1;
+  return n;
 }
-const unlocked = (i) => {
-  if (i === 0) return true;
-  return lessonCleared(book().lessons[i - 1]);
-};
+// The teacher can open any lesson to look at it.
+const unlocked = (i) => state.role === "teacher" || i < openLessonCount();
 function scoreKey(p) {
   const id = lesson().id;
   return p?.type === "review" ? id + "#review" : id;
 }
-
-let state = load();
+function examScore(p) {
+  if (p.type === "practice") return state.practiceResults[state.practiceId] || null;
+  if (state.role === "teacher") return state.teacherResults[scoreKey(p)] || null;
+  return scoreOf(scoreKey(p));
+}
 
 const markSvg = `
 <svg class="mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -113,17 +170,16 @@ const markSvg = `
   <path d="M22 40c3.2-10 6.4-15 10-15s6.8 5 10 15" stroke="#C45C3E" stroke-width="2" stroke-linecap="round"/>
 </svg>`;
 
-// fill() output goes into HTML, so the student's name is escaped; fillText() is for grading and speech.
+// fill() output goes into HTML, so the student's name is escaped; fillText() is for speech.
 const fill = (t) => (t || "").replaceAll("{name}", escapeHtml(state.name || "Alex"));
 const fillText = (t) => (t || "").replaceAll("{name}", state.name || "Alex");
-const norm = (s) => fillText(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
-  .replace(/['’]/g, "").replace(/[-–—/]/g, " ").replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 const lesson = () => book().lessons[state.lesson];
 const page = () => lesson()?.pages[state.page];
-
-function scoreOf(id) {
-  return state.scores[id] || null;
-}
+const lessonLabel = (id) => {
+  const i = BANK.lessonIndex.get(id);
+  const L = book().lessons[i];
+  return L ? `${L.level}.${L.num} ${L.title}` : id;
+};
 
 function speak(text) {
   if (!window.speechSynthesis) return;
@@ -155,11 +211,16 @@ function listenOnce() {
   });
 }
 
+// Answers are keyed by where they were typed: a lesson page, or a practice set.
 function keyFor(extra = "") {
+  if (state.view === "practice") return `p${state.practiceId}:${extra}`;
   return `${lesson().id}:${state.page}:${extra}`;
 }
+function savedAns(i) {
+  return state.answers[keyFor(i)] ?? "";
+}
 
-const TEACHER_VIEWS = ["teacher", "student-detail"];
+// ---------- rendering
 
 function render() {
   playToken += 1;
@@ -168,8 +229,8 @@ function render() {
   catch (err) {
     // A bad saved position (or a content edit) must never leave a blank screen.
     console.error("Puente render failed; returning to the index", err);
-    if (state.view === "toc" && state.onboarded) { $("#app").textContent = "Error al cargar. Recarga la página."; return; }
-    state.view = "toc";
+    if (state.view === "toc" || !state.role) { $("#app").textContent = "Error al cargar. Recarga la página."; return; }
+    state.view = state.role === "teacher" ? "teacher" : "toc";
     state.page = 0;
     state.qIndex = 0;
     renderView();
@@ -180,15 +241,24 @@ function render() {
 function renderView() {
   const root = $("#app");
   document.querySelector(".app")?.classList.remove("wide");
-  if (TEACHER_VIEWS.includes(state.view) && state.role !== "teacher") state.view = "toc";
+  if (!state.booted) { root.textContent = "Cargando Puente…"; return; }
+  if (!state.role) { root.innerHTML = viewLogin(); bindLogin(); return; }
+  if (state.role === "student" && !STUDENT_VIEWS.includes(state.view)) state.view = "toc";
+  if (state.role === "teacher" && ![...TEACHER_VIEWS, "toc", "how", "lesson"].includes(state.view)) state.view = "teacher";
   if (state.view === "lesson" && (!lesson() || !unlocked(state.lesson))) state.view = "toc";
-  if (!state.onboarded) { root.innerHTML = viewOnboard(); bindOnboard(); return; }
   if (state.view === "how") { root.innerHTML = shell(viewHow()); bindNav(); return; }
-  if (state.view === "teacher") { root.innerHTML = shell(window.PUENTE_CLASSROOM.viewTeacher()); bindNav(); window.PUENTE_CLASSROOM.bindTeacher(); return; }
-  if (state.view === "student-detail") { root.innerHTML = shell(window.PUENTE_CLASSROOM.viewStudentDetail(state.teacherStudent)); bindNav(); window.PUENTE_CLASSROOM.bindStudentDetail(); return; }
-  if (state.view === "slip") { root.innerHTML = shell(window.PUENTE_CLASSROOM.viewSlip()); bindNav(); window.PUENTE_CLASSROOM.bindSlip(); return; }
+  if (state.view === "insights") { root.innerHTML = shell(viewInsights()); bindNav(); loadInsights(); return; }
+  if (state.view === "practice") { root.innerHTML = shell(viewPractice()); bindPage(); loadPractice(); return; }
+  if (TEACHER_VIEWS.includes(state.view)) {
+    document.querySelector(".app")?.classList.add("wide");
+    root.innerHTML = shell(window.PUENTE_TEACHER.view());
+    bindNav();
+    window.PUENTE_TEACHER.bind();
+    return;
+  }
   if (state.view === "lesson") { root.innerHTML = shell(viewPage(), true); bindPage(); return; }
-  root.innerHTML = shell(viewToc()); bindNav();
+  root.innerHTML = shell(viewToc());
+  bindNav();
 }
 
 function shell(inner, inLesson = false) {
@@ -196,12 +266,13 @@ function shell(inner, inLesson = false) {
   const p = page();
   const folio = inLesson
     ? `ENGL ${L.level} · L${L.num} · pág. ${state.page + 1}/${L.pages.length}`
-    : "Índice";
+    : state.role === "teacher" ? "Profesor" : escapeHtml(state.name);
   return `
     <header class="running">
-      <a class="brand" href="#" data-view="toc">${markSvg}<span><span class="brand-name">Puente</span><span class="brand-sub">Paso a paso</span></span></a>
+      <a class="brand" href="#" data-view="${state.role === "teacher" && !inLesson ? "teacher" : "toc"}">${markSvg}<span><span class="brand-name">Puente</span><span class="brand-sub">Paso a paso</span></span></a>
       <span class="folio">${folio}</span>
     </header>
+    ${state.notice ? `<div class="notice" role="status">${escapeHtml(state.notice)} <button class="linkish" id="dismiss">Cerrar</button></div>` : ""}
     <div class="page-sheet screen">${inner}</div>
     ${inLesson ? pageNav(L, p) : ""}
   `;
@@ -210,119 +281,179 @@ function shell(inner, inLesson = false) {
 function pageNav(L, p) {
   const last = state.page === L.pages.length - 1;
   const exam = p?.type === "quiz" || p?.type === "review";
-  const passed = exam ? !!scoreOf(scoreKey(p))?.passed : true;
-  const canFinish = !exam || passed;
+  const passed = exam ? !!examScore(p)?.passed || state.role === "teacher" : true;
   let nextLabel = "Página siguiente";
-  if (p?.type === "quiz" && !scoreOf(L.id)?.passed) nextLabel = "Sin 80% no avanzas";
+  if (state.role === "teacher") nextLabel = last ? "Cerrar lección" : "Página siguiente";
+  else if (p?.type === "quiz" && !scoreOf(L.id)?.passed) nextLabel = "Sin 80% no avanzas";
   else if (p?.type === "quiz") nextLabel = "Ir al examen de repaso";
   else if (p?.type === "review" && !scoreOf(L.id + "#review")?.passed) nextLabel = "Sin 80% en el repaso no avanzas";
   else if (last) nextLabel = "Cerrar lección";
   return `
     <div class="pager">
       <button class="btn secondary" data-prev ${state.page === 0 ? "disabled" : ""}>Anterior</button>
-      <button class="btn" data-next ${canFinish ? "" : "disabled"}>${nextLabel}</button>
+      <button class="btn" data-next ${passed ? "" : "disabled"}>${nextLabel}</button>
     </div>`;
 }
 
-function viewOnboard() {
+// ---------- sign-in
+
+function viewLogin() {
+  const tab = state.loginTab;
+  const student = `
+      <label class="field">Código de la clase
+        <input id="code" type="text" value="${escapeAttr(recall("puente.classCode"))}" autocomplete="off" autocapitalize="characters" maxlength="6" placeholder="Te lo da el profesor">
+      </label>
+      <label class="field">Nombre
+        <input id="first" type="text" autocomplete="given-name" maxlength="40">
+      </label>
+      <label class="field">Apellido
+        <input id="last" type="text" autocomplete="family-name" maxlength="40">
+      </label>
+      <label class="field">Clave (al menos 4 caracteres)
+        <input id="pin" type="password" autocomplete="current-password" maxlength="40">
+      </label>
+      <button class="btn full" id="enter">Entrar</button>
+      <p class="tiny">La primera vez, tu nombre y tu clave crean tu cuenta en la clase. Si olvidas la clave, el profesor la cambia.</p>`;
+  const setup = `
+      <p class="tiny">Primera vez: cree la cuenta del profesor con el código de instalación.</p>
+      <label class="field">Código de instalación
+        <input id="setup-code" type="text" autocomplete="off">
+      </label>
+      <label class="field">Nombre de la primera clase
+        <input id="class-name" type="text" maxlength="40" placeholder="Inglés 100">
+      </label>
+      <label class="field">Contraseña del profesor (al menos 8 caracteres)
+        <input id="tpw" type="password" autocomplete="new-password">
+      </label>
+      <label class="field">Repita la contraseña
+        <input id="tpw2" type="password" autocomplete="new-password">
+      </label>
+      <button class="btn full" id="setup">Crear cuenta de profesor</button>`;
+  const teacher = state.hasTeacher === null
+    ? `<p class="tiny">Cargando…</p>`
+    : state.hasTeacher
+      ? `<label class="field">Contraseña del profesor
+          <input id="tpw" type="password" autocomplete="current-password">
+        </label>
+        <button class="btn full" id="enter-teacher">Entrar como profesor</button>`
+      : setup;
   return `
     <div class="page-sheet screen stack" style="padding-top:28px">
       ${markSvg.replace("class=\"mark\"", "class=\"hero-mark\"")}
       <p class="kicker">Entrar</p>
       <h1>Tu cuenta</h1>
-      <p class="lede">Nombre y apellido. Elige una clave. Al entrar, tu nombre queda en la lista del profesor.</p>
-      <p id="auth-msg" class="tiny"></p>
-      <label class="field">Nombre
-        <input id="first" type="text" value="${escapeAttr(state.firstName)}" autocomplete="given-name" maxlength="40">
-      </label>
-      <label class="field">Apellido
-        <input id="last" type="text" value="${escapeAttr(state.lastName)}" autocomplete="family-name" maxlength="40">
-      </label>
-      <label class="field">Clave (para que nadie entre en tu cuenta)
-        <input id="pin" type="password" value="" autocomplete="current-password" maxlength="40">
-      </label>
-      <button class="btn full" id="enter">Entrar como alumno</button>
-      <button class="btn secondary full" id="enter-teacher">Entrar como profesor</button>
-      <p class="tiny">Profesor: solo hace falta la clave. ${window.PUENTE_CLASSROOM.hasTeacherPin() ? "" : "La primera clave que escriba aquí queda como clave del profesor en este aparato."}</p>
+      <div class="tabs" role="tablist">
+        <button class="tab ${tab === "student" ? "active" : ""}" role="tab" aria-selected="${tab === "student"}" data-tab="student">Alumno</button>
+        <button class="tab ${tab === "teacher" ? "active" : ""}" role="tab" aria-selected="${tab === "teacher"}" data-tab="teacher">Profesor</button>
+      </div>
+      <p id="auth-msg" class="tiny" role="alert">${escapeHtml(state.notice)}</p>
+      ${tab === "student" ? student : teacher}
     </div>`;
 }
 
-function bindOnboard() {
-  const read = () => {
-    state.firstName = ($("#first").value || "").trim();
-    state.lastName = ($("#last").value || "").trim();
-    state.pin = ($("#pin").value || "").trim();
-    state.name = state.firstName || "Alex";
-  };
-  ["first", "last", "pin"].forEach((id) => $("#" + id)?.addEventListener("input", read));
-  const goTeacher = () => {
-    read();
-    if (!state.pin) {
-      $("#auth-msg").textContent = "Escriba la clave del profesor.";
-      return;
+function bindLogin() {
+  const msg = (t) => { $("#auth-msg").textContent = t; };
+  $$("[data-tab]").forEach((b) => b.addEventListener("click", async () => {
+    state.loginTab = b.dataset.tab;
+    state.notice = "";
+    render();
+    if (state.loginTab === "teacher" && state.hasTeacher === null) {
+      try { state.hasTeacher = (await api("GET", "teacher/status", undefined, { auth: false })).hasTeacher; }
+      catch (e) { state.hasTeacher = true; state.notice = e.message; }
+      render();
     }
-    const gate = window.PUENTE_CLASSROOM.checkTeacherPin(state.pin);
-    if (!gate.ok) {
-      $("#auth-msg").textContent = gate.error;
-      return;
-    }
-    state.firstName = "";
-    state.lastName = "";
-    state.pin = "";
-    state.onboarded = true;
-    state.role = "teacher";
-    state.view = "teacher";
-    save();
+  }));
+  const busy = (btn, on, label) => { if (!btn) return; btn.disabled = on; if (label) btn.textContent = label; };
+  const afterLogin = async () => {
+    state.notice = "";
+    const me = await api("GET", "me");
+    if (!me.role) throw new Error("No se pudo abrir la sesión. ¿El navegador bloquea las cookies?");
+    applyMe(me);
     render();
   };
-  const goStudent = () => {
-    read();
-    if (!state.firstName || !state.lastName) {
-      $("#auth-msg").textContent = "Escribe nombre y apellido.";
-      return;
+  const goStudent = async () => {
+    const code = ($("#code").value || "").trim().toUpperCase();
+    const first = ($("#first").value || "").trim();
+    const last = ($("#last").value || "").trim();
+    const pin = ($("#pin").value || "").trim();
+    if (!code) return msg("Escribe el código de la clase.");
+    if (!first || !last) return msg("Escribe nombre y apellido.");
+    if (pin.length < 4) return msg("La clave necesita al menos 4 caracteres.");
+    const btn = $("#enter");
+    busy(btn, true, "Entrando…");
+    try {
+      await api("POST", "student/login", { code, first, last, pin }, { auth: false });
+      remember("puente.classCode", code);
+      await afterLogin();
+    } catch (e) {
+      busy(btn, false, "Entrar");
+      msg(e.message);
     }
-    if (!state.pin) {
-      $("#auth-msg").textContent = "Elige una clave.";
-      return;
-    }
-    const found = window.PUENTE_CLASSROOM.loadAccount(state.firstName, state.lastName, state.pin);
-    if (found.ok === false) {
-      $("#auth-msg").textContent = found.error;
-      return;
-    }
-    if (found.ok === true && found.acc) {
-      const acc = found.acc;
-      state.scores = isObj(acc.scores) ? acc.scores : {};
-      state.answers = isObj(acc.answers) ? acc.answers : {};
-      state.timeMs = isObj(acc.timeMs) ? acc.timeMs : {};
-      state.doneLessons = isObj(acc.doneLessons) ? acc.doneLessons : {};
-      stripReviewHtml(state.scores);
-      state.studentCode = acc.code || state.studentCode;
-    } else {
-      // A brand-new name must not inherit whatever the previous person on this device left behind.
-      state.scores = {};
-      state.answers = {};
-      state.timeMs = {};
-      state.doneLessons = {};
-      state.studentCode = Math.random().toString(36).slice(2, 6).toUpperCase();
-    }
-    state.lesson = 0;
-    state.page = 0;
-    state.qIndex = 0;
-    state.onboarded = true;
-    state.role = "student";
-    state.view = "how";
-    save();
-    window.PUENTE_CLASSROOM.enrollStudent(state.firstName, state.lastName, state.studentCode);
-    window.PUENTE_CLASSROOM.saveAccountFromState(state);
-    render();
   };
-  $("#enter").addEventListener("click", goStudent);
-  $("#enter-teacher").addEventListener("click", goTeacher);
-  ["first", "last", "pin"].forEach((id) => $("#" + id)?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); goStudent(); }
+  const goTeacher = async () => {
+    const btn = $("#enter-teacher");
+    busy(btn, true, "Entrando…");
+    try {
+      await api("POST", "teacher/login", { password: $("#tpw").value }, { auth: false });
+      await afterLogin();
+    } catch (e) {
+      busy(btn, false, "Entrar como profesor");
+      msg(e.message);
+    }
+  };
+  const goSetup = async () => {
+    if ($("#tpw").value !== $("#tpw2").value) return msg("Las contraseñas no coinciden.");
+    const btn = $("#setup");
+    busy(btn, true, "Creando…");
+    try {
+      await api("POST", "teacher/setup", { setupCode: $("#setup-code").value, password: $("#tpw").value, className: $("#class-name").value }, { auth: false });
+      await afterLogin();
+    } catch (e) {
+      busy(btn, false, "Crear cuenta de profesor");
+      msg(e.message);
+    }
+  };
+  $("#enter")?.addEventListener("click", goStudent);
+  $("#enter-teacher")?.addEventListener("click", goTeacher);
+  $("#setup")?.addEventListener("click", goSetup);
+  $("#code")?.addEventListener("input", (e) => { e.target.value = e.target.value.toUpperCase(); });
+  $$("#app input").forEach((inp) => inp.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    ($("#enter") || $("#enter-teacher") || $("#setup"))?.click();
   }));
 }
+
+function applyMe(me) {
+  if (!me?.role) return;
+  if (me.role === "teacher") {
+    state.role = "teacher";
+    state.teacherName = me.teacher?.name || "";
+    state.view = "teacher";
+    return;
+  }
+  const s = isObj(me.state) ? me.state : {};
+  const firstVisit = !Object.keys(s).length;
+  state.role = "student";
+  state.first = me.student.first;
+  state.last = me.student.last;
+  state.name = me.student.first;
+  state.className = me.student.className;
+  state.classCode = me.student.classCode;
+  state.scores = isObj(me.scores) ? me.scores : {};
+  state.practice = Array.isArray(me.practice) ? me.practice : [];
+  state.homework = Array.isArray(me.homework) ? me.homework : [];
+  state.answers = isObj(s.answers) ? s.answers : {};
+  state.timeMs = isObj(s.timeMs) ? s.timeMs : {};
+  const li = Number.isInteger(s.lesson) && s.lesson >= 0 && s.lesson < book().lessons.length ? s.lesson : 0;
+  state.lesson = li;
+  state.page = Number.isInteger(s.page) && s.page >= 0 && s.page < book().lessons[li].pages.length ? s.page : 0;
+  state.qIndex = Number.isInteger(s.qIndex) && s.qIndex >= 0 ? s.qIndex : 0;
+  state.practiceId = s.practiceId || null;
+  state.view = firstVisit ? "how" : (STUDENT_VIEWS.includes(s.view) ? s.view : "toc");
+}
+
+// ---------- index, help, insights
 
 function viewHow() {
   return `
@@ -330,9 +461,37 @@ function viewHow() {
     <h1>Un capítulo después del otro</h1>
     <ol class="howto">
       ${book().how.map((h) => `<li>${h}</li>`).join("")}
+      <li>Después de cada examen, Puente mira qué te cuesta y te prepara una práctica corta con esas preguntas. La encuentras arriba en el índice.</li>
     </ol>
     <button class="btn full" data-view="toc">Ir al índice</button>
   `;
+}
+
+function practicePanel() {
+  if (state.role !== "student") return "";
+  const open = state.practice.filter((p) => p.status === "open");
+  const done = state.practice.filter((p) => p.status === "done").length;
+  const hw = state.homework.length
+    ? `<p class="tiny"><strong>Tarea de clase:</strong> ${state.homework.map((h) => {
+        const ok = lessonCleared({ id: h.lesson_id });
+        return `${escapeHtml(lessonLabel(h.lesson_id))} ${ok ? "✓" : ""}`;
+      }).join(" · ")}${state.homework[0].due ? ` · para el ${escapeHtml(state.homework[0].due)}` : ""}</p>`
+    : "";
+  const cards = open.map((p) => `
+      <div class="practice-card">
+        <div>
+          <strong>${escapeHtml(p.title)}</strong>
+          <small>${p.n} preguntas · ${p.origin === "teacher" ? "del profesor" : "personal"}${p.due ? ` · para el ${escapeHtml(p.due)}` : ""}${p.best_percent != null ? ` · mejor ${p.best_percent}%` : ""}</small>
+        </div>
+        <button class="btn ${p.origin === "teacher" ? "terra" : ""}" data-practice="${p.id}">${p.best_percent != null ? "Seguir" : "Empezar"}</button>
+      </div>`).join("");
+  return `
+    <section class="practice-panel">
+      <p class="kicker">Hola, ${escapeHtml(state.first)} · ${escapeHtml(state.className)}</p>
+      ${hw}
+      ${cards || `<p class="tiny">No tienes práctica pendiente. Después de cada examen, Puente prepara una con lo que más te cuesta.</p>`}
+      <p class="tiny">${done ? `Prácticas completadas: ${done} · ` : ""}<a href="#" data-view="insights">Mis fuerzas y debilidades</a></p>
+    </section>`;
 }
 
 function viewToc() {
@@ -352,7 +511,7 @@ function viewToc() {
             let status = L.goal;
             if (done) status = `Aprobada · examen ${sc.percent}% · repaso ${scoreOf(L.id + "#review")?.percent ?? "—"}%`;
             else if (lock) status = "Aprueba examen y repaso de la anterior (80%)";
-            else if (sc && !lessonCleared(L)) status = `Examen ${sc.percent || "—"}% · repaso ${scoreOf(L.id + "#review")?.percent ?? "pendiente"}%`;
+            else if (sc && !lessonCleared(L)) status = `Examen ${sc.percent ?? "—"}% · repaso ${scoreOf(L.id + "#review")?.percent ?? "pendiente"}%`;
             return `<li>
               <button class="toc-row ${lock ? "locked" : ""} ${done ? "passed" : ""}" data-open="${i}" ${lock ? "disabled" : ""}>
                 <span class="toc-num">${L.num}</span>
@@ -368,14 +527,98 @@ function viewToc() {
       </section>`;
   }).join("");
   return `
+    ${practicePanel()}
     <p class="kicker">${book().subtitle}</p>
     <h1>Contenido</h1>
     <p class="lede">Cuatro semestres. Una lección abre cuando la anterior está al 80%.</p>
     ${blocks}
     <p class="tiny"><a href="#" data-view="how">Cómo usar este libro</a>${state.role === "teacher"
       ? ` · <a href="#" data-view="teacher">Escritorio del profesor</a>`
-      : ` · <a href="#" data-view="slip">Ficha para el profesor</a>`} · <a href="#" id="logout">Cerrar sesión</a>${state.role === "teacher" ? "" : ` · <a href="#" id="reset">Empezar de cero</a>`}</p>
+      : ` · <a href="#" data-view="insights">Mis fuerzas y debilidades</a>`} · <a href="#" id="logout">Cerrar sesión</a></p>
   `;
+}
+
+// Strengths/weaknesses table, shared with the teacher desk.
+function masteryHtml(ins, opts = {}) {
+  if (!ins) return `<p class="tiny">Cargando…</p>`;
+  if (!ins.topics.length) return `<p class="tiny">${opts.empty || "Todavía no hay respuestas. Haz un examen o una práctica."}</p>`;
+  const pct = (m) => `${Math.round(m * 100)}%`;
+  const cls = (lv) => ({ "fuerte": "lv-strong", "en progreso": "lv-mid", "débil": "lv-weak" }[lv] || "lv-few");
+  const list = (arr, empty) => arr.length
+    ? `<ul class="mastery-list">${arr.map((c) => `<li><span class="lv ${cls(c.level)}">${pct(c.mastery)}</span> ${escapeHtml(c.label)} <small>(${c.n} preguntas)</small></li>`).join("")}</ul>`
+    : `<p class="tiny">${empty}</p>`;
+  const skills = G.SKILLS;
+  const rows = ins.topics.map((t) => {
+    const cells = skills.map((s) => {
+      const c = ins.cells.find((x) => x.topic === t.topic && x.skill === s);
+      return c ? `<td><span class="lv ${cls(c.level)}" title="${c.n} preguntas">${pct(c.mastery)}</span></td>` : `<td class="tiny">—</td>`;
+    }).join("");
+    return `<tr><td>${escapeHtml(t.title)}</td><td><span class="lv ${cls(t.level)}" title="${t.n} preguntas">${pct(t.mastery)}</span></td>${cells}</tr>`;
+  }).join("");
+  return `
+    <div class="mastery-cols">
+      <div><h3 class="subhead">Fuerzas</h3>${list(ins.strengths, "Aún no hay suficientes respuestas.")}</div>
+      <div><h3 class="subhead">A trabajar</h3>${list(ins.weaknesses, "Nada flojo por ahora.")}</div>
+    </div>
+    <div class="table-wrap">
+      <table class="gradebook mastery">
+        <thead><tr><th>Lección</th><th>Total</th>${skills.map((s) => `<th>${SKILL_ES[s]}</th>`).join("")}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="tiny"><span class="lv lv-strong">85%+</span> fuerte · <span class="lv lv-mid">65–84%</span> en progreso · <span class="lv lv-weak">&lt;65%</span> débil · <span class="lv lv-few">gris</span> menos de 3 preguntas. Cuenta la última respuesta de cada pregunta; las recientes pesan más.</p>`;
+}
+window.PUENTE_UI = { masteryHtml, lessonLabel, SKILL_ES };
+
+function viewInsights() {
+  return `
+    <p class="kicker">Tu progreso</p>
+    <h1>Fuerzas y debilidades</h1>
+    <p class="lede">Puente mira tus respuestas por lección y por tipo de pregunta.</p>
+    <div id="insights">${masteryHtml(state.insights)}</div>
+    <button class="btn secondary" data-view="toc">Volver al índice</button>`;
+}
+async function loadInsights() {
+  try {
+    state.insights = await api("GET", "insights");
+    const box = $("#insights");
+    if (box && state.view === "insights") box.innerHTML = masteryHtml(state.insights);
+  } catch (e) {
+    const box = $("#insights");
+    if (box) box.innerHTML = `<p class="bad">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+// ---------- practice sets
+
+function practicePage(set) {
+  const topics = [...new Set((set.focus || []).map((f) => lessonLabel(f.topic)))];
+  return {
+    type: "practice",
+    num: set.origin === "teacher" ? "Tarea del profesor" : "Práctica personal",
+    heading: set.title,
+    instruction: topics.length ? `Trabaja: ${topics.join(" · ")}. Aprobada con ${PASS()}%.` : "",
+    items: set.items.map((ref) => {
+      const e = BANK.byRef.get(ref);
+      return e ? { ...e.item, kind: e.skill, from: e.topic } : null;
+    }).filter(Boolean)
+  };
+}
+function viewPractice() {
+  const set = state.practiceSets[state.practiceId];
+  if (!set) return `<p class="tiny" id="practice-loading">Cargando práctica…</p><button class="btn secondary" data-view="toc">Volver al índice</button>`;
+  return viewQuiz(practicePage(set)) + `<button class="btn secondary" data-view="toc">Volver al índice</button>`;
+}
+async function loadPractice() {
+  const id = state.practiceId;
+  if (!id || state.practiceSets[id]) return;
+  try {
+    state.practiceSets[id] = await api("GET", `practice/${id}`);
+    if (state.view === "practice" && state.practiceId === id) render();
+  } catch (e) {
+    const box = $("#practice-loading");
+    if (box) box.textContent = e.message;
+  }
 }
 
 function viewPage() {
@@ -511,6 +754,7 @@ function viewPage() {
   return "";
 }
 
+
 function itemFields(it, i) {
   const kind = it.kind || "";
   if (kind === "fill" || (!kind && it.before != null && it.answer && !it.options && !it.answers)) {
@@ -528,7 +772,7 @@ function itemFields(it, i) {
   }
   if (kind === "order" || it.words) {
     const built = savedAns(i) || "";
-    const pool = shuffleStable(it.words, lesson().id + state.page + i + String(scoreOf(lesson().id)?.attempts || 0));
+    const pool = shuffleStable(it.words, keyFor("tiles" + i) + String(examScore({ type: state.view === "practice" ? "practice" : page()?.type })?.attempts || 0));
     return `<div class="drill-block"><p>${i + 1}. Arma la frase.</p>
       <div class="built">${built ? escapeHtml(built) : "<span class='ghost'>Toca las palabras</span>"}</div>
       <div class="pool">${tiles(pool, built, i)}
@@ -548,23 +792,26 @@ function tiles(pool, built, i) {
   }).join("");
 }
 
+// One question at a time for exams, reviews and practice sets; nothing is marked until it's handed in.
 function viewQuiz(p) {
   if (state.qIndex == null || state.qIndex < 0) state.qIndex = 0;
   if (state.qIndex > p.items.length - 1) state.qIndex = p.items.length - 1;
   const i = state.qIndex;
   const it = p.items[i];
   const last = i === p.items.length - 1;
-  const key = scoreKey(p);
-  const sc = scoreOf(key);
+  const sc = examScore(p);
+  const set = p.type === "practice" ? state.practiceSets[state.practiceId] : null;
   const src = it.from ? lessonByFrom(it.from) : null;
-  const banner = sc
-    ? `<div class="score ${sc.passed ? "pass" : "fail"}">Último resultado: <b>${sc.percent}%</b> · ${sc.passed ? "Aprobado." : "Mínimo " + PASS() + "%."} Intentos: ${sc.attempts}</div>`
-    : `<div class="score">Pregunta ${i + 1} de ${p.items.length}. Siguiente no corrige. Entregar solo al final.</div>`;
-  const fromBox = src ? `<div class="score">Si te atascas: esto sale de <b>ENGL ${src.level} · Lección ${src.num} · ${src.title}</b>.
+  let banner = `<div class="score">Pregunta ${i + 1} de ${p.items.length}. Siguiente no corrige. Entregar solo al final.</div>`;
+  if (sc) banner = `<div class="score ${sc.passed ? "pass" : "fail"}">Último resultado: <b>${sc.percent}%</b> · ${sc.passed ? "Aprobado." : "Mínimo " + PASS() + "%."}${sc.attempts ? " Intentos: " + sc.attempts : ""}</div>`;
+  else if (set?.best_percent != null) banner = `<div class="score ${set.status === "done" ? "pass" : ""}">Mejor resultado hasta ahora: <b>${set.best_percent}%</b>${set.status === "done" ? " · Completada." : ""}</div>`;
+  const srcIdx = src ? BANK.lessonIndex.get(src.id) : -1;
+  const fromBox = src && srcIdx >= 0 && unlocked(srcIdx) && (p.type === "practice" || src.id !== lesson()?.id)
+    ? `<div class="score">Si te atascas: esto sale de <b>ENGL ${src.level} · Lección ${src.num} · ${src.title}</b>.
       <button class="btn secondary" id="jump-from" type="button">Ir a esa lección</button></div>` : "";
   return `
     <p class="ex-num">${p.num}</p>
-    <h2>${p.heading}</h2>
+    <h2>${escapeHtml(p.heading)}</h2>
     <p class="tiny">${p.instruction || ""}</p>
     ${banner}
     ${fromBox}
@@ -574,20 +821,21 @@ function viewQuiz(p) {
       <div class="pager">
         <button class="btn secondary" id="qprev" type="button" ${i === 0 ? "disabled" : ""}>Pregunta anterior</button>
         ${last
-          ? `<button class="btn terra" id="check" type="button">Entregar examen</button>`
+          ? `<button class="btn terra" id="check" type="button">${p.type === "practice" ? "Entregar práctica" : "Entregar examen"}</button>`
           : `<button class="btn" id="qnext" type="button">Siguiente pregunta</button>`}
       </div>
-      <button class="btn secondary" id="retake" type="button">Empezar el examen de nuevo</button>
+      <p id="submit-msg" class="bad" role="alert"></p>
+      <button class="btn secondary" id="retake" type="button">Empezar de nuevo</button>
     </form>
     <div id="key" class="key">${sc && last ? reviewHtml(p, sc) : ""}</div>`;
 }
 
-// Rebuilds the answer sheet from the stored right/wrong string instead of keeping HTML in storage.
+// Rebuilds the answer sheet from the right/wrong string the server returns.
 function reviewHtml(p, sc) {
   if (!sc.res || sc.res.length !== p.items.length) return "";
   const lines = p.items.map((it, i) => {
     const ok = sc.res[i] === "1";
-    return `<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : "Clave: " + markItem(it, i).key}</div>`;
+    return `<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : "Clave: " + escapeHtml(G.keyText(it, G.itemKind(it), state.name))}</div>`;
   });
   const passed = sc.lastPassed ?? sc.passed;
   return `<strong>${passed ? "Aprobado" : "Suspenso"}</strong> · ${sc.percent}% (${sc.right}/${sc.total}) · mínimo ${PASS()}%
@@ -611,8 +859,12 @@ function checkBtn() {
   return `<button class="btn secondary" id="check">Comprobar</button>`;
 }
 
-function savedAns(i) {
-  return state.answers[keyFor(i)] ?? "";
+function currentItems() {
+  if (state.view === "practice") {
+    const set = state.practiceSets[state.practiceId];
+    return set ? practicePage(set).items : [];
+  }
+  return page()?.items || [];
 }
 
 function bindNav() {
@@ -621,6 +873,7 @@ function bindNav() {
     state.view = a.dataset.view;
     save();
     render();
+    window.scrollTo(0, 0);
   }));
   $$("[data-open]").forEach((b) => b.addEventListener("click", () => {
     const i = Number(b.dataset.open);
@@ -631,27 +884,27 @@ function bindNav() {
     state.view = "lesson";
     save();
     render();
+    window.scrollTo(0, 0);
   }));
-  $("#reset")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    if (!confirm("¿Borrar todo tu progreso en este aparato y empezar desde la lección 1? No se puede deshacer.")) return;
-    // The saved account is what brings progress back at sign-in, so it has to go too.
-    // The teacher's gradebook keeps its own copy of past results.
-    window.PUENTE_CLASSROOM?.deleteAccount?.(state.firstName, state.lastName);
-    try { localStorage.removeItem(STORE_KEY); } catch {}
-    state = defaultState();
+  $$("[data-practice]").forEach((b) => b.addEventListener("click", () => {
+    state.practiceId = Number(b.dataset.practice);
+    state.qIndex = 0;
+    state.view = "practice";
+    save();
     render();
-  });
-  $("#logout")?.addEventListener("click", (e) => {
+    window.scrollTo(0, 0);
+  }));
+  $("#dismiss")?.addEventListener("click", () => { state.notice = ""; render(); });
+  $("#logout")?.addEventListener("click", async (e) => {
     e.preventDefault();
     pulseTime();
-    syncAccount();
-    const keep = { firstName: state.role === "teacher" ? "" : state.firstName, lastName: state.role === "teacher" ? "" : state.lastName };
-    state = defaultState();
-    state.firstName = keep.firstName;
-    state.lastName = keep.lastName;
-    // Persist the signed-out state; otherwise a reload re-opens the previous person's session.
-    save();
+    await flush();
+    try { await api("POST", "logout", {}, { auth: false }); } catch {}
+    const tab = state.role === "teacher" ? "teacher" : "student";
+    window.PUENTE_TEACHER?.reset();
+    state = blankState();
+    state.booted = true;
+    state.loginTab = tab;
     render();
   });
 }
@@ -666,7 +919,7 @@ function bindPage() {
   $("#check")?.addEventListener("click", grade);
   $("#retake")?.addEventListener("click", retakeQuiz);
   $("#qnext")?.addEventListener("click", () => {
-    state.qIndex = Math.min((state.qIndex || 0) + 1, page().items.length - 1);
+    state.qIndex = Math.min((state.qIndex || 0) + 1, currentItems().length - 1);
     save();
     render();
   });
@@ -676,26 +929,27 @@ function bindPage() {
     render();
   });
   $("#jump-from")?.addEventListener("click", () => {
-    const id = page().items[state.qIndex]?.from;
+    const id = currentItems()[state.qIndex]?.from;
     const idx = book().lessons.findIndex((L) => L.id === id);
-    if (idx < 0) return;
+    if (idx < 0 || !unlocked(idx)) return;
     state.lesson = idx;
     state.page = 0;
     state.qIndex = 0;
+    state.view = "lesson";
     save();
     render();
+    window.scrollTo(0, 0);
   });
   $$("[data-q]").forEach((inp) => {
-    // Saving the whole roster on every keystroke made typing lag once the class grew.
     inp.addEventListener("input", () => {
       state.answers[keyFor(inp.dataset.q)] = inp.value;
-      save({ soon: true });
+      save();
     });
     inp.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
       // Enter moves to the next exam question but never hands the exam in by accident.
-      const exam = page()?.type === "quiz" || page()?.type === "review";
+      const exam = state.view === "practice" || page()?.type === "quiz" || page()?.type === "review";
       (exam ? $("#qnext") : $("#check"))?.click();
     });
   });
@@ -729,7 +983,8 @@ function bindPage() {
 function nextPage() {
   const L = lesson();
   const p = page();
-  if ((p?.type === "quiz" || p?.type === "review") && !scoreOf(scoreKey(p))?.passed) return;
+  const teacher = state.role === "teacher";
+  if (!teacher && (p?.type === "quiz" || p?.type === "review") && !examScore(p)?.passed) return;
   if (state.page < L.pages.length - 1) {
     state.page += 1;
     state.qIndex = 0;
@@ -738,85 +993,94 @@ function nextPage() {
     window.scrollTo(0, 0);
     return;
   }
-  if (!lessonCleared(L)) return;
-  state.doneLessons[L.id] = true;
+  if (!teacher && !lessonCleared(L)) return;
   state.view = "toc";
   save();
   render();
+  window.scrollTo(0, 0);
 }
 
-function markItem(it, i) {
-  const kind = it.kind || (it.options ? "choose" : it.answers ? "translate" : it.words ? "order" : "fill");
-  if (kind === "fill") {
-    const got = norm(($("[data-q=\"" + i + "\"]") || {}).value || savedAns(i));
-    const opts = (it.answers && it.answers.length) ? it.answers : [it.answer];
-    const ok = opts.some((a) => got === norm(a));
-    return { ok, key: fill(opts[0] || "") };
-  }
-  if (kind === "choose") {
-    const got = Number(state.answers[keyFor(i)]);
-    const ok = got === it.answer;
-    return { ok, key: fill(it.options[it.answer]) };
-  }
-  if (kind === "order") {
-    const ok = norm(state.answers[keyFor(i)] || "") === norm(it.answer);
-    return { ok, key: it.answer };
-  }
-  if (kind === "translate") {
-    const got = norm(($("[data-q=\"" + i + "\"]") || {}).value || savedAns(i));
-    const ok = (it.answers || []).some((a) => got === norm(a));
-    return { ok, key: fill((it.answers || [""])[0]) };
-  }
-  return { ok: false, key: "" };
+function markItem(it, i, pageType) {
+  const el = $("[data-q=\"" + i + "\"]");
+  const answer = el ? el.value : savedAns(i);
+  const r = G.mark(it, answer, state.name, pageType);
+  return { ok: r.ok, key: escapeHtml(r.key) };
 }
 
+// Exercise pages: instant feedback here, and the result is sent to the server in the background
+// so it counts toward the student's strengths and weaknesses.
 function grade() {
-  const p = page();
-  if (p.type === "quiz" || p.type === "review") {
-    gradeQuiz(p);
-    return;
-  }
+  const p = state.view === "practice" ? { type: "practice" } : page();
+  if (p.type === "quiz" || p.type === "review" || p.type === "practice") { submitExam(); return; }
   const out = [];
   let right = 0;
+  const answers = {};
   p.items.forEach((it, i) => {
-    const { ok, key } = markItem({ ...it, kind: p.type }, i);
+    const { ok, key } = markItem(it, i, p.type);
+    answers[i] = savedAns(i);
     if (ok) right += 1;
     out.push(`<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : "Clave: " + key}</div>`);
   });
   $("#key").innerHTML = `<strong>Clave</strong> · ${right}/${p.items.length}<div class="stack" style="margin-top:8px">${out.join("")}</div>`;
+  if (state.role === "student") {
+    flush();
+    api("POST", "grade", { source: "exercise", lessonId: lesson().id, page: state.page, answers }).catch(() => {});
+  }
 }
 
-function gradeQuiz(p) {
-  let right = 0;
-  let res = "";
-  p.items.forEach((it, i) => {
-    const { ok } = markItem(it, i);
-    if (ok) right += 1;
-    res += ok ? "1" : "0";
-  });
-  const total = p.items.length;
-  const percent = Math.round((right / total) * 100);
-  const passed = percent >= PASS();
-  const key = scoreKey(p);
-  const prev = scoreOf(key);
-  state.scores[key] = {
-    percent,
-    right,
-    total,
-    passed: !!(prev && prev.passed) || passed,
-    lastPassed: passed,
-    attempts: (prev?.attempts || 0) + 1,
-    ts: Date.now(),
-    res
-  };
-  if (lessonCleared(lesson())) state.doneLessons[lesson().id] = true;
-  save();
-  render();
+function collectAnswers(n) {
+  const out = {};
+  for (let i = 0; i < n; i++) {
+    const a = savedAns(i);
+    if (a !== "" && a != null) out[i] = a;
+  }
+  return out;
+}
+
+async function submitExam() {
+  const practice = state.view === "practice";
+  const set = practice ? state.practiceSets[state.practiceId] : null;
+  const p = practice ? practicePage(set) : page();
+  const btn = $("#check");
+  if (btn?.disabled) return;
+  // The teacher can try an exam; it is marked here and never recorded.
+  if (state.role === "teacher") {
+    let res = "";
+    p.items.forEach((it, i) => { res += markItem(it, i, null).ok ? "1" : "0"; });
+    const right = [...res].filter((c) => c === "1").length;
+    const percent = Math.round((right / p.items.length) * 100);
+    state.teacherResults[scoreKey(p)] = { percent, right, total: p.items.length, res, passed: percent >= PASS() };
+    render();
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = "Entregando…"; }
+  const body = practice
+    ? { source: "practice", assignmentId: state.practiceId, answers: collectAnswers(p.items.length) }
+    : { source: p.type, lessonId: lesson().id, page: state.page, answers: collectAnswers(p.items.length) };
+  try {
+    await flush();
+    const r = await api("POST", "grade", body);
+    state.scores = r.scores;
+    state.practice = r.practice;
+    if (practice) {
+      const prev = state.practiceResults[state.practiceId];
+      state.practiceResults[state.practiceId] = { percent: r.percent, right: r.right, total: r.total, res: r.res, passed: r.passed, attempts: (prev?.attempts || 0) + 1 };
+      set.best_percent = Math.max(set.best_percent ?? 0, r.percent);
+      if (r.passed) set.status = "done";
+    }
+    if (r.newPractice) state.notice = "Tienes una práctica nueva con lo que más te cuesta. Está arriba en el índice.";
+    state.insights = null;
+    render();
+  } catch (e) {
+    if (e.status === 401) return;
+    if (btn) { btn.disabled = false; btn.textContent = practice ? "Entregar práctica" : "Entregar examen"; }
+    const m = $("#submit-msg");
+    if (m) m.textContent = e.message + " Tus respuestas siguen aquí.";
+  }
 }
 
 function retakeQuiz() {
-  const p = page();
-  p.items.forEach((_, i) => { delete state.answers[keyFor(i)]; });
+  currentItems().forEach((_, i) => { delete state.answers[keyFor(i)]; });
   state.qIndex = 0;
   save();
   render();
@@ -831,17 +1095,13 @@ async function runMic() {
   el.textContent = "Habla ahora.";
   try {
     const heard = await listenOnce();
-    const a = new Set(norm(expected).split(" "));
-    const b = norm(heard).split(" ");
+    const a = new Set(G.norm(expected, state.name).split(" "));
+    const b = G.norm(heard, state.name).split(" ");
     const hits = b.filter((w) => a.has(w)).length;
     const score = Math.round((hits / Math.max(a.size, 1)) * 100);
-    state.spoken += 1;
-    save();
     el.textContent = `Oí: “${heard}” · ${score}% cerca del modelo.`;
     el.className = score >= 55 ? "ok" : "tiny";
   } catch {
-    state.spoken += 1;
-    save();
     el.textContent = "Micrófono no disponible. Recita la frase y pasa la página.";
   } finally {
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = "Hablar"; }
@@ -870,6 +1130,8 @@ function shuffleStable(arr, seed) {
   return a;
 }
 
+// ---------- time on lesson
+
 // Time only counts while someone is actually using the page. A lesson left open on an
 // unattended screen used to keep adding minutes to the teacher's report all night.
 const IDLE_MS = 5 * 60000;
@@ -878,50 +1140,37 @@ let lastActivity = Date.now();
   window.addEventListener(ev, () => { lastActivity = Date.now(); }, { passive: true, capture: true }));
 
 function pulseTime() {
-  if (!state.onboarded || state.role === "teacher" || state.view !== "lesson" || !lesson()) return;
+  if (state.role !== "student" || state.view !== "lesson" || !lesson()) return;
   const now = Date.now();
   if (!state.clockOn) { state.clockOn = now; return; }
   const d = now - state.clockOn;
   state.clockOn = now;
   if (d < 0 || d > 180000) return;
   if (now - lastActivity > IDLE_MS) return;
-  state.timeMs = state.timeMs || {};
   state.timeMs[lesson().id] = (state.timeMs[lesson().id] || 0) + d;
+  save();
 }
-setInterval(() => {
-  pulseTime();
-  if (state.onboarded && state.role === "student") save();
-}, 10000);
+setInterval(pulseTime, 15000);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { pulseTime(); save(); state.clockOn = 0; }
+  if (document.hidden) { pulseTime(); state.clockOn = 0; flush(true); }
   else state.clockOn = Date.now();
 });
-window.addEventListener("pagehide", () => { pulseTime(); save(); });
+window.addEventListener("pagehide", () => { pulseTime(); flush(true); });
 
-// Another tab changed the saved session: follow a sign-in/sign-out there, otherwise pull in its progress.
-window.addEventListener("storage", (e) => {
-  if (e.key !== STORE_KEY && e.key !== null) return;
-  const incoming = load();
-  if (sameStudent(state, incoming)) {
-    mergeProgress(state, incoming);
-    if (state.view === "toc") render();
-    return;
-  }
-  if (!state.onboarded && !incoming.onboarded) return;
-  state = incoming;
-  render();
-});
+// ---------- browser Back/Forward move between pages of the book instead of leaving the site
 
-// Browser Back/Forward move between pages of the book instead of leaving the site.
 let restoringHistory = false;
 function navKey() {
-  if (!state.onboarded) return "login";
-  return state.view === "lesson" ? `lesson:${state.lesson}:${state.page}` : state.view;
+  if (!state.role) return "login";
+  if (state.view === "lesson") return `lesson:${state.lesson}:${state.page}`;
+  if (state.view === "practice") return `practice:${state.practiceId}`;
+  if (state.view === "student-detail") return `student:${window.PUENTE_TEACHER?.currentStudent?.() || ""}`;
+  return state.view;
 }
 function syncHistory() {
   if (restoringHistory || !window.history?.pushState) return;
   const k = navKey();
-  const snap = { k, view: state.view, lesson: state.lesson, page: state.page };
+  const snap = { k, view: state.view, lesson: state.lesson, page: state.page, practiceId: state.practiceId, student: window.PUENTE_TEACHER?.currentStudent?.() || null };
   try {
     if (!history.state) history.replaceState(snap, "");
     else if (history.state.k !== k) history.pushState(snap, "");
@@ -929,15 +1178,27 @@ function syncHistory() {
 }
 window.addEventListener("popstate", (e) => {
   const s = e.state;
-  if (!s || !state.onboarded || s.k === "login") return;
-  const target = s.view === "lesson" ? s.lesson : state.lesson;
-  const allowed = s.view !== "lesson" || (book().lessons[target] && unlocked(target));
-  if (!allowed) return;
+  if (!s || !state.role || s.k === "login") return;
+  if (s.view === "lesson" && !(book().lessons[s.lesson] && unlocked(s.lesson))) return;
   state.view = s.view;
   if (s.view === "lesson") { state.lesson = s.lesson; state.page = Math.min(s.page, lesson().pages.length - 1); state.qIndex = 0; }
+  if (s.view === "practice") { state.practiceId = s.practiceId; state.qIndex = 0; }
+  if (s.view === "student-detail" && s.student) window.PUENTE_TEACHER?.openStudent?.(s.student, false);
   restoringHistory = true;
   try { save(); render(); } finally { restoringHistory = false; }
   window.scrollTo(0, 0);
 });
 
-render();
+// ---------- start
+
+async function boot() {
+  render();
+  try {
+    applyMe(await api("GET", "me", undefined, { auth: false }));
+  } catch (e) {
+    if (e.status !== 401) state.notice = e.message;
+  }
+  state.booted = true;
+  render();
+}
+boot();
