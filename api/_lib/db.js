@@ -78,6 +78,25 @@ create table if not exists responses (
   answer text,
   created_at timestamptz not null default now()
 );
+create table if not exists exams (
+  id bigserial primary key,
+  student_id int not null references students(id) on delete cascade,
+  lesson_id text not null,
+  kind text not null,
+  items jsonb not null,
+  created_at timestamptz not null default now(),
+  submitted_at timestamptz,
+  percent int,
+  results jsonb
+);
+create index if not exists exams_student_idx on exams (student_id, lesson_id, created_at desc);
+create table if not exists announcements (
+  id bigserial primary key,
+  class_id int not null references classes(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+alter table students add column if not exists phone text;
 create index if not exists responses_student_idx on responses (student_id, created_at desc);
 create table if not exists homework (
   class_id int not null references classes(id) on delete cascade,

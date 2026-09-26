@@ -17,7 +17,7 @@ const bank = bankLib.build(book);
 const lessonTitle = (id) => {
   const L = book.lessons[bank.lessonIndex.get(id)];
   if (!L) return id;
-  return L.elective ? L.title : `${L.level}.${L.num} ${L.title}`;
+  return L.elective || !L.num ? L.title : `${L.num}. ${L.title}`;
 };
 
 module.exports = { book, bank, grading, PASS, lessonTitle };

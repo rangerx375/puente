@@ -30,7 +30,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return handle(req, res);
   const rel = url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname.slice(1));
   const file = path.join(ROOT, rel);
-  const blocked = !file.startsWith(ROOT + path.sep) || /(^|\/)\.|^(api|scripts|tests|node_modules)\//.test(rel);
+  const blocked = !file.startsWith(ROOT + path.sep) || /(^|\/)\.|^(api|scripts|tests|curriculum|node_modules)\//.test(rel);
   if (blocked || !TYPES[path.extname(file)] || !fs.existsSync(file)) {
     res.statusCode = 404;
     return res.end("not found");

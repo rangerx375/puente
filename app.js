@@ -7,7 +7,10 @@ const G = window.PUENTE_GRADING;
 const BANK = window.PUENTE_BANK.build(window.PUENTE_BOOK);
 const SKILL_ES = { choose: "Elegir", fill: "Completar", translate: "Traducir", order: "Ordenar" };
 const STUDENT_VIEWS = ["toc", "how", "lesson", "practice", "insights"];
-const TEACHER_VIEWS = ["teacher", "student-detail"];
+const TEACHER_VIEWS = ["teacher", "student-detail", "curriculum"];
+const EXAM_TYPES = ["quiz", "review", "exam"];
+const EXERCISE_TYPES = ["fill", "choose", "translate", "order", "reading"];
+const isExamPage = (p) => EXAM_TYPES.includes(p?.type);
 
 // Progress lives on the server; this is the in-memory copy for the person signed in on this page.
 const blankState = () => ({
@@ -16,6 +19,7 @@ const blankState = () => ({
   first: "",
   last: "",
   name: "",
+  phone: "",
   className: "",
   classCode: "",
   teacherName: "",
@@ -27,11 +31,13 @@ const blankState = () => ({
   answers: {},
   timeMs: {},
   scores: {},
+  tracking: [],
   practice: [],
   homework: [],
+  announcements: [],
   practiceSets: {},
   practiceResults: {},
-  teacherResults: {},
+  exams: {},
   insights: null,
   notice: "",
   clockOn: 0,
@@ -144,22 +150,21 @@ function recall(key) {
 // ---------- scores and locks
 
 const scoreOf = (id) => state.scores[id] || null;
-const lessonCleared = (L) => !!(state.scores[L.id]?.passed && state.scores[L.id + "#review"]?.passed);
+const lessonCleared = (L) => !!state.scores[L.id]?.passed;
+const coreLessons = () => book().lessons.filter((L) => !L.elective);
 function openLessonCount() {
+  const core = coreLessons();
   let n = 1;
-  while (n < book().lessons.length && lessonCleared(book().lessons[n - 1])) n += 1;
+  while (n < core.length && lessonCleared(core[n - 1])) n += 1;
   return n;
 }
-// The teacher can open any lesson to look at it; special chapters (electives) are open to everyone.
-const unlocked = (i) => state.role === "teacher" || !!book().lessons[i]?.elective || i < openLessonCount();
-function scoreKey(p) {
-  const id = lesson().id;
-  return p?.type === "review" ? id + "#review" : id;
-}
-function examScore(p) {
-  if (p.type === "practice") return state.practiceResults[state.practiceId] || null;
-  if (state.role === "teacher") return state.teacherResults[scoreKey(p)] || null;
-  return scoreOf(scoreKey(p));
+// The teacher can open every lesson. Job lessons open after the unit exam they depend on.
+function unlocked(i) {
+  const L = book().lessons[i];
+  if (!L) return false;
+  if (state.role === "teacher") return true;
+  if (L.elective) return !!state.scores[L.opensAfter]?.passed;
+  return coreLessons().indexOf(L) < openLessonCount();
 }
 
 const markSvg = `
@@ -171,24 +176,25 @@ const markSvg = `
 </svg>`;
 
 // fill() output goes into HTML, so the student's name is escaped; fillText() is for speech.
-const fill = (t) => (t || "").replaceAll("{name}", escapeHtml(state.name || "Alex"));
+const fill = (t) => escapeHtml(t || "").replaceAll("{name}", escapeHtml(state.name || "Alex"));
 const fillText = (t) => (t || "").replaceAll("{name}", state.name || "Alex");
 const lesson = () => book().lessons[state.lesson];
 const page = () => lesson()?.pages[state.page];
+const lessonById = (id) => book().lessons[BANK.lessonIndex.get(id)];
 const lessonLabel = (id) => {
-  const i = BANK.lessonIndex.get(id);
-  const L = book().lessons[i];
+  const L = lessonById(id);
   if (!L) return id;
-  return L.elective ? L.title : `${L.level}.${L.num} ${L.title}`;
+  return L.elective || !L.num ? L.title : `${L.num}. ${L.title}`;
 };
-const levelCode = (L) => book().levels.find((lv) => lv.id === L.level)?.code || `ENGL ${L.level}`;
+const unitOf = (L) => (book().units || []).find((u) => u.id === L.unit);
+const unitLabel = (L) => (L.elective ? "Trabajo" : `Unidad ${unitOf(L)?.num ?? ""}`);
 
 function speak(text) {
   if (!window.speechSynthesis) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(fillText(text));
   u.lang = "en-US";
-  u.rate = 0.92;
+  u.rate = 0.9;
   speechSynthesis.speak(u);
 }
 
@@ -213,13 +219,60 @@ function listenOnce() {
   });
 }
 
-// Answers are keyed by where they were typed: a lesson page, or a practice set.
+// ---------- exams: every attempt is a fresh set of questions drawn by the server
+
+function examBox() {
+  const id = lesson()?.id;
+  if (!id) return null;
+  return state.exams[id] || (state.exams[id] = { loaded: false, loading: false, exam: null, last: null, showResult: false, error: "" });
+}
+// Items for an exam, practice set or sample, from their bank references.
+function itemsFromRefs(refs) {
+  return (refs || []).map((ref) => {
+    const e = BANK.byRef.get(ref);
+    return e ? { ...e.item, kind: e.skill, from: e.topic, ref } : null;
+  }).filter(Boolean);
+}
+// Which exam the answers being typed belong to.
+function activeExamKey() {
+  if (state.view === "practice") return `p${state.practiceId}`;
+  if (!isExamPage(page())) return null;
+  const box = examBox();
+  if (state.role === "teacher") return box?.sample ? `t${lesson().id}` : null;
+  return box?.exam ? `x${box.exam.id}` : null;
+}
+
+// Answers are keyed by where they were typed: a lesson page, an exam, or a practice set.
 function keyFor(extra = "") {
-  if (state.view === "practice") return `p${state.practiceId}:${extra}`;
+  const ex = activeExamKey();
+  if (ex) return `${ex}:${extra}`;
   return `${lesson().id}:${state.page}:${extra}`;
 }
 function savedAns(i) {
   return state.answers[keyFor(i)] ?? "";
+}
+
+async function loadExam(start = false) {
+  const L = lesson();
+  const box = examBox();
+  if (!L || box.loading) return;
+  box.loading = true;
+  box.error = "";
+  try {
+    const r = await api("POST", "exam/open", { lessonId: L.id, start });
+    box.exam = r.exam;
+    box.last = r.last;
+    box.loaded = true;
+    if (r.scores) state.scores = r.scores;
+    if (start) { state.qIndex = 0; box.showResult = false; }
+    else box.showResult = !r.exam && !!r.last;
+  } catch (e) {
+    box.error = e.message;
+    box.loaded = true;
+  } finally {
+    box.loading = false;
+    if (state.view === "lesson" && lesson()?.id === L.id) render();
+  }
 }
 
 // ---------- rendering
@@ -267,7 +320,7 @@ function shell(inner, inLesson = false) {
   const L = lesson();
   const p = page();
   const folio = inLesson
-    ? `${levelCode(L)} · L${L.num} · pág. ${state.page + 1}/${L.pages.length}`
+    ? `${unitLabel(L)} · ${L.elective ? "" : L.kind === "review" ? "Repaso · " : L.kind === "exam" ? "Examen de la unidad · " : "Lección " + L.num + " · "}pág. ${state.page + 1}/${L.pages.length}`
     : state.role === "teacher" ? "Profesor" : escapeHtml(state.name);
   return `
     <header class="running">
@@ -282,18 +335,15 @@ function shell(inner, inLesson = false) {
 
 function pageNav(L, p) {
   const last = state.page === L.pages.length - 1;
-  const exam = p?.type === "quiz" || p?.type === "review";
-  const passed = exam ? !!examScore(p)?.passed || state.role === "teacher" : true;
-  let nextLabel = "Página siguiente";
-  if (state.role === "teacher") nextLabel = last ? "Cerrar lección" : "Página siguiente";
-  else if (p?.type === "quiz" && !scoreOf(L.id)?.passed) nextLabel = "Sin 80% no avanzas";
-  else if (p?.type === "quiz") nextLabel = "Ir al examen de repaso";
-  else if (p?.type === "review" && !scoreOf(L.id + "#review")?.passed) nextLabel = "Sin 80% en el repaso no avanzas";
-  else if (last) nextLabel = "Cerrar lección";
+  const teacher = state.role === "teacher";
+  const blocked = !teacher && isExamPage(p) && !lessonCleared(L);
+  let nextLabel = last ? "Cerrar lección" : "Página siguiente";
+  if (blocked) nextLabel = `Necesitas ${PASS()}% para seguir`;
+  else if (!teacher && isExamPage(p) && last) nextLabel = "Volver al índice";
   return `
     <div class="pager">
       <button class="btn secondary" data-prev ${state.page === 0 ? "disabled" : ""}>Anterior</button>
-      <button class="btn" data-next ${passed ? "" : "disabled"}>${nextLabel}</button>
+      <button class="btn" data-next ${blocked ? "disabled" : ""}>${nextLabel}</button>
     </div>`;
 }
 
@@ -308,21 +358,25 @@ function viewLogin() {
       <label class="field">Nombre
         <input id="first" type="text" autocomplete="given-name" maxlength="40">
       </label>
-      <label class="field">Apellido
+      <label class="field">Apellidos
         <input id="last" type="text" autocomplete="family-name" maxlength="40">
+      </label>
+      <label class="field">Número de WhatsApp
+        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="304 555 1234">
+        <small>Obligatorio la primera vez. El profesor lo usa para mandarte avisos y recordatorios. Si no es de EE. UU., empieza con + y el código del país.</small>
       </label>
       <label class="field">Clave (al menos 4 caracteres)
         <input id="pin" type="password" autocomplete="current-password" maxlength="40">
       </label>
       <button class="btn full" id="enter">Entrar</button>
-      <p class="tiny">La primera vez, tu nombre y tu clave crean tu cuenta en la clase. Si olvidas la clave, el profesor la cambia.</p>`;
+      <p class="tiny">La primera vez, tu nombre completo, tu WhatsApp y tu clave crean tu cuenta en la clase. Después entras con el mismo nombre y la misma clave. Si olvidas la clave, el profesor la cambia.</p>`;
   const setup = `
       <p class="tiny">Primera vez: cree la cuenta del profesor con el código de instalación.</p>
       <label class="field">Código de instalación
         <input id="setup-code" type="text" autocomplete="off">
       </label>
       <label class="field">Nombre de la primera clase
-        <input id="class-name" type="text" maxlength="40" placeholder="Inglés 100">
+        <input id="class-name" type="text" maxlength="40" placeholder="Inglés de los martes">
       </label>
       <label class="field">Contraseña del profesor (al menos 8 caracteres)
         <input id="tpw" type="password" autocomplete="new-password">
@@ -377,14 +431,15 @@ function bindLogin() {
     const code = ($("#code").value || "").trim().toUpperCase();
     const first = ($("#first").value || "").trim();
     const last = ($("#last").value || "").trim();
+    const phone = ($("#phone").value || "").trim();
     const pin = ($("#pin").value || "").trim();
     if (!code) return msg("Escribe el código de la clase.");
-    if (!first || !last) return msg("Escribe nombre y apellido.");
+    if (!first || !last) return msg("Escribe tu nombre y tus apellidos.");
     if (pin.length < 4) return msg("La clave necesita al menos 4 caracteres.");
     const btn = $("#enter");
     busy(btn, true, "Entrando…");
     try {
-      await api("POST", "student/login", { code, first, last, pin }, { auth: false });
+      await api("POST", "student/login", { code, first, last, phone, pin }, { auth: false });
       remember("puente.classCode", code);
       await afterLogin();
     } catch (e) {
@@ -440,11 +495,14 @@ function applyMe(me) {
   state.first = me.student.first;
   state.last = me.student.last;
   state.name = me.student.first;
+  state.phone = me.student.phone || "";
   state.className = me.student.className;
   state.classCode = me.student.classCode;
   state.scores = isObj(me.scores) ? me.scores : {};
+  state.tracking = Array.isArray(me.tracking) ? me.tracking : [];
   state.practice = Array.isArray(me.practice) ? me.practice : [];
   state.homework = Array.isArray(me.homework) ? me.homework : [];
+  state.announcements = Array.isArray(me.announcements) ? me.announcements : [];
   state.answers = isObj(s.answers) ? s.answers : {};
   state.timeMs = isObj(s.timeMs) ? s.timeMs : {};
   const li = Number.isInteger(s.lesson) && s.lesson >= 0 && s.lesson < book().lessons.length ? s.lesson : 0;
@@ -457,27 +515,65 @@ function applyMe(me) {
 
 // ---------- index, help, insights
 
+// The lesson a student should do next: the first open core lesson not yet passed.
+function nextLessonIndex() {
+  const core = coreLessons();
+  const n = openLessonCount();
+  const L = core[Math.min(n, core.length) - 1];
+  return book().lessons.indexOf(L);
+}
+
+// "Lección 12 · Saludos", "Repaso · …", "Examen de la unidad 1"
+function stepLabel(L) {
+  if (L.kind === "review") return `Repaso · ${L.title}`;
+  if (L.kind === "exam") return `Examen de la unidad ${unitOf(L)?.num ?? ""}`;
+  return `Lección ${L.num} · ${L.title}`;
+}
+
 function viewHow() {
+  const next = state.role === "student" ? book().lessons[nextLessonIndex()] : null;
   return `
-    <p class="kicker">Cómo usar este libro</p>
-    <h1>Un capítulo después del otro</h1>
-    <ol class="howto">
-      ${book().how.map((h) => `<li>${h}</li>`).join("")}
-      <li>Después de cada examen, Puente mira qué te cuesta y te prepara una práctica corta con esas preguntas. La encuentras arriba en el índice.</li>
-    </ol>
-    <button class="btn full" data-view="toc">Ir al índice</button>
+    <p class="kicker">Cómo funciona Puente</p>
+    <h1>Así se aprende con Puente</h1>
+    ${(book().how || []).map((sec) => `
+      <section class="how-sec">
+        <h2>${escapeHtml(sec.h)}</h2>
+        ${sec.p.map((t) => `<p>${escapeHtml(t)}</p>`).join("")}
+        ${sec.ol ? `<ol>${sec.ol.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ol>` : ""}
+        ${(sec.after || []).map((t) => `<p>${escapeHtml(t)}</p>`).join("")}
+      </section>`).join("")}
+    ${next ? `
+      <div class="rule-box">
+        <strong>¿Qué hago ahora?</strong>
+        <p>Tu siguiente paso: <b>${escapeHtml(stepLabel(next))}</b>. Ábrelo y ve página por página.</p>
+      </div>
+      <button class="btn full" data-open="${nextLessonIndex()}">Ir a mi siguiente paso</button>` : ""}
+    <button class="btn secondary full" data-view="toc">Ver el índice</button>
   `;
 }
+
+const ANNOUNCE_WHEN = (d) => new Date(d).toLocaleDateString("es", { day: "numeric", month: "short" });
 
 function practicePanel() {
   if (state.role !== "student") return "";
   const open = state.practice.filter((p) => p.status === "open");
   const done = state.practice.filter((p) => p.status === "done").length;
+  const next = book().lessons[nextLessonIndex()];
   const hw = state.homework.length
     ? `<p class="tiny"><strong>Tarea de clase:</strong> ${state.homework.map((h) => {
-        const ok = lessonCleared({ id: h.lesson_id });
+        const L = lessonById(h.lesson_id);
+        const ok = L && lessonCleared(L);
         return `${escapeHtml(lessonLabel(h.lesson_id))} ${ok ? "✓" : ""}`;
       }).join(" · ")}${state.homework[0].due ? ` · para el ${escapeHtml(state.homework[0].due)}` : ""}</p>`
+    : "";
+  const news = state.announcements.length
+    ? `<div class="announce">${state.announcements.map((a) => `<p><small>${ANNOUNCE_WHEN(a.created_at)} · Aviso del profesor</small>${escapeHtml(a.body).replace(/\n/g, "<br>")}</p>`).join("")}</div>`
+    : "";
+  const phone = !state.phone
+    ? `<div class="rule-box"><strong>Falta tu WhatsApp</strong>
+        <p class="tiny">El profesor manda avisos por WhatsApp. Escribe tu número:</p>
+        <div class="row wrap"><input id="my-phone" type="tel" inputmode="tel" maxlength="20" placeholder="304 555 1234" aria-label="Número de WhatsApp">
+        <button class="btn secondary" id="save-phone">Guardar</button></div><p class="tiny" id="phone-msg" role="status"></p></div>`
     : "";
   const cards = open.map((p) => `
       <div class="practice-card">
@@ -487,55 +583,85 @@ function practicePanel() {
         </div>
         <button class="btn ${p.origin === "teacher" ? "terra" : ""}" data-practice="${p.id}">${p.best_percent != null ? "Seguir" : "Empezar"}</button>
       </div>`).join("");
+  const tracked = state.tracking.length
+    ? `<p class="tiny"><strong>Puntos en seguimiento:</strong> ${state.tracking.slice(0, 4).map((t) => escapeHtml(t.title)).join(" · ")}${state.tracking.length > 4 ? " …" : ""}. Volverán en tus repasos hasta que los domines.</p>`
+    : "";
   return `
     <section class="practice-panel">
       <p class="kicker">Hola, ${escapeHtml(state.first)} · ${escapeHtml(state.className)}</p>
+      ${news}
+      ${phone}
+      ${next ? `<div class="next-step"><div><small>Tu siguiente paso</small><strong>${escapeHtml(stepLabel(next))}</strong></div>
+        <button class="btn" data-open="${nextLessonIndex()}">${scoreOf(next.id) || state.lesson === book().lessons.indexOf(next) ? "Seguir" : "Empezar"}</button></div>` : ""}
       ${hw}
       ${cards || `<p class="tiny">No tienes práctica pendiente. Después de cada examen, Puente prepara una con lo que más te cuesta.</p>`}
+      ${tracked}
       <p class="tiny">${done ? `Prácticas completadas: ${done} · ` : ""}<a href="#" data-view="insights">Mis fuerzas y debilidades</a></p>
     </section>`;
 }
 
+function tocRow(L, i) {
+  const lock = !unlocked(i);
+  const sc = scoreOf(L.id);
+  const done = sc?.passed;
+  const tag = L.kind === "review" ? "Repaso" : L.kind === "exam" ? "Examen" : L.elective ? "" : L.num;
+  let status = L.goal || "";
+  if (L.kind === "review") status = `Repaso de las lecciones ${L.map.covers.map((id) => lessonById(id)?.num).filter(Boolean).join(", ")} y de lo que te cuesta.`;
+  if (L.kind === "exam") status = "Examen final de la unidad.";
+  if (done) status = `Aprobada · mejor nota ${sc.best ?? sc.percent}%`;
+  else if (lock && L.elective) status = `Se abre al aprobar el examen de la ${unitLabel(lessonById(L.opensAfter)).toLowerCase()}.`;
+  else if (lock) status = `Aprueba la anterior con ${PASS()}% para abrirla.`;
+  else if (sc) status = `Último examen ${sc.percent}% · necesitas ${PASS()}%`;
+  return `<li>
+    <button class="toc-row ${lock ? "locked" : ""} ${done ? "passed" : ""} ${L.kind !== "lesson" ? "checkpoint" : ""}" data-open="${i}" ${lock ? "disabled" : ""}>
+      <span class="toc-num">${tag}</span>
+      <span>
+        <strong>${escapeHtml(L.title)}</strong>
+        <em>${escapeHtml(L.titleEn)}</em>
+        <small>${escapeHtml(status)}</small>
+      </span>
+    </button>
+  </li>`;
+}
+
 function viewToc() {
-  const levels = book().levels || [];
-  const blocks = levels.map((lv) => {
-    const rows = book().lessons.map((L, i) => ({ L, i })).filter((x) => x.L.level === lv.id);
+  const units = (book().units || []).filter((u) => u.id !== "oficios");
+  const rowsOf = (pred) => book().lessons.map((L, i) => ({ L, i })).filter(({ L }) => pred(L));
+  const blocks = units.map((un) => {
+    const rows = rowsOf((L) => L.unit === un.id);
+    const passed = rows.filter(({ L }) => lessonCleared(L)).length;
+    const anyOpen = rows.some(({ i }) => unlocked(i));
     return `
-      <section class="level-block">
-        <p class="kicker">${lv.code}</p>
-        <h2>${lv.title}</h2>
-        <p class="lede">${lv.blurb}</p>
-        <ol class="toc">
-          ${rows.map(({ L, i }) => {
-            const lock = !unlocked(i);
-            const sc = scoreOf(L.id);
-            const done = sc?.passed;
-            let status = L.goal;
-            if (done) status = `Aprobada · examen ${sc.percent}% · repaso ${scoreOf(L.id + "#review")?.percent ?? "—"}%`;
-            else if (lock) status = "Aprueba examen y repaso de la anterior (80%)";
-            else if (sc && !lessonCleared(L)) status = `Examen ${sc.percent ?? "—"}% · repaso ${scoreOf(L.id + "#review")?.percent ?? "pendiente"}%`;
-            return `<li>
-              <button class="toc-row ${lock ? "locked" : ""} ${done ? "passed" : ""}" data-open="${i}" ${lock ? "disabled" : ""}>
-                <span class="toc-num">${L.num}</span>
-                <span>
-                  <strong>${L.title}</strong>
-                  <em>${L.titleEn}</em>
-                  <small>${status}</small>
-                </span>
-              </button>
-            </li>`;
-          }).join("")}
-        </ol>
-      </section>`;
+      <details class="level-block" ${anyOpen && passed < rows.length ? "open" : ""}>
+        <summary>
+          <p class="kicker">Unidad ${un.num} · ${passed}/${rows.length}</p>
+          <h2>${escapeHtml(un.title)}</h2>
+          <p class="lede">${escapeHtml(un.blurb)}</p>
+        </summary>
+        <ol class="toc">${rows.map(({ L, i }) => tocRow(L, i)).join("")}</ol>
+      </details>`;
   }).join("");
+  const trades = (book().trades || []).map((tr) => {
+    const rows = rowsOf((L) => L.trade === tr.id);
+    return `<h3 class="subhead">${escapeHtml(tr.title)}</h3><ol class="toc">${rows.map(({ L, i }) => tocRow(L, i)).join("")}</ol>`;
+  }).join("");
+  const job = book().units.find((u) => u.id === "oficios");
   return `
     ${practicePanel()}
-    <p class="kicker">${book().subtitle}</p>
+    <p class="kicker">${escapeHtml(book().subtitle)}</p>
     <h1>Contenido</h1>
-    <p class="lede">Cuatro semestres. Una lección abre cuando la anterior está al 80%.</p>
+    <p class="lede">Ocho unidades, una cosa en cada lección. La siguiente lección se abre cuando apruebas el examen de la anterior con ${PASS()}%.</p>
     ${blocks}
-    <p class="tiny"><a href="#" data-view="how">Cómo usar este libro</a>${state.role === "teacher"
-      ? ` · <a href="#" data-view="teacher">Escritorio del profesor</a>`
+    <details class="level-block">
+      <summary>
+        <p class="kicker">Opcional</p>
+        <h2>${escapeHtml(job.title)}</h2>
+        <p class="lede">${escapeHtml(job.blurb)}</p>
+      </summary>
+      ${trades}
+    </details>
+    <p class="tiny"><a href="#" data-view="how">Cómo funciona Puente</a>${state.role === "teacher"
+      ? ` · <a href="#" data-view="teacher">Escritorio del profesor</a> · <a href="#" data-view="curriculum">Mapa del curso</a>`
       : ` · <a href="#" data-view="insights">Mis fuerzas y debilidades</a>`} · <a href="#" id="logout">Cerrar sesión</a></p>
   `;
 }
@@ -557,7 +683,13 @@ function masteryHtml(ins, opts = {}) {
     }).join("");
     return `<tr><td>${escapeHtml(t.title)}</td><td><span class="lv ${cls(t.level)}" title="${t.n} preguntas">${pct(t.mastery)}</span></td>${cells}</tr>`;
   }).join("");
+  const tracking = ins.tracking
+    ? (ins.tracking.length
+      ? `<ul class="mastery-list">${ins.tracking.map((t) => `<li><span class="lv lv-weak">${pct(t.mastery)}</span> ${escapeHtml(t.title)} <small>${t.need ? `faltan ${t.need} respuestas bien seguidas` : "casi dominado"}</small></li>`).join("")}</ul>`
+      : `<p class="tiny">Nada en seguimiento. ¡Muy bien!</p>`)
+    : "";
   return `
+    ${ins.tracking ? `<h3 class="subhead">En seguimiento</h3><p class="tiny">Conceptos que fallaste. Vuelven en repasos y prácticas hasta que respondas bien ${4} veces seguidas.</p>${tracking}` : ""}
     <div class="mastery-cols">
       <div><h3 class="subhead">Fuerzas</h3>${list(ins.strengths, "Aún no hay suficientes respuestas.")}</div>
       <div><h3 class="subhead">A trabajar</h3>${list(ins.weaknesses, "Nada flojo por ahora.")}</div>
@@ -570,7 +702,6 @@ function masteryHtml(ins, opts = {}) {
     </div>
     <p class="tiny"><span class="lv lv-strong">85%+</span> fuerte · <span class="lv lv-mid">65–84%</span> en progreso · <span class="lv lv-weak">&lt;65%</span> débil · <span class="lv lv-few">gris</span> menos de 3 preguntas. Cuenta la última respuesta de cada pregunta; las recientes pesan más.</p>`;
 }
-window.PUENTE_UI = { masteryHtml, lessonLabel, SKILL_ES };
 
 function viewInsights() {
   return `
@@ -599,17 +730,21 @@ function practicePage(set) {
     type: "practice",
     num: set.origin === "teacher" ? "Tarea del profesor" : "Práctica personal",
     heading: set.title,
-    instruction: topics.length ? `Trabaja: ${topics.join(" · ")}. Aprobada con ${PASS()}%.` : "",
-    items: set.items.map((ref) => {
-      const e = BANK.byRef.get(ref);
-      return e ? { ...e.item, kind: e.skill, from: e.topic } : null;
-    }).filter(Boolean)
+    instruction: topics.length ? `Practicas: ${topics.join(" · ")}. Se completa con ${PASS()}%.` : "",
+    items: itemsFromRefs(set.items)
   };
 }
 function viewPractice() {
   const set = state.practiceSets[state.practiceId];
   if (!set) return `<p class="tiny" id="practice-loading">Cargando práctica…</p><button class="btn secondary" data-view="toc">Volver al índice</button>`;
-  return viewQuiz(practicePage(set)) + `<button class="btn secondary" data-view="toc">Volver al índice</button>`;
+  const p = practicePage(set);
+  const res = state.practiceResults[state.practiceId];
+  if (res?.show) {
+    return resultHtml({ percent: res.percent, passed: res.passed, results: res.results }, p.items, "practice")
+      + `<div class="row wrap">${res.passed ? "" : `<button class="btn" id="practice-again">Intentarlo otra vez</button>`}
+         <button class="btn secondary" data-view="toc">Volver al índice</button></div>`;
+  }
+  return viewQuiz(p) + `<button class="btn secondary" data-view="toc">Volver al índice</button>`;
 }
 async function loadPractice() {
   const id = state.practiceId;
@@ -623,52 +758,52 @@ async function loadPractice() {
   }
 }
 
+// ---------- lesson pages
+
+function paragraphs(list) {
+  return (Array.isArray(list) ? list : [list]).filter(Boolean).map((t) => `<p>${fill(t)}</p>`).join("");
+}
+
 function viewPage() {
   const p = page();
   if (!p) return "<p>Fin.</p>";
   if (p.type === "open") {
     return `
-      <p class="kicker">${p.kicker}</p>
-      <h1>${p.heading}</h1>
-      <p class="lede">${p.body}</p>
+      <p class="kicker">${escapeHtml(p.kicker)}</p>
+      <h1>${escapeHtml(p.heading)}</h1>
+      <div class="lede">${paragraphs(p.body)}</div>
       <div class="rule-box">
-        <strong>En esta lección</strong>
-        <ul>${p.objectives.map((o) => `<li>${o}</li>`).join("")}</ul>
-      </div>`;
+        <strong>${lesson().kind === "lesson" ? "En esta lección" : "Qué entra"}</strong>
+        <ul>${p.objectives.map((o) => `<li>${escapeHtml(o)}</li>`).join("")}</ul>
+      </div>
+      ${state.role === "teacher" ? teacherLessonNote(lesson()) : ""}`;
   }
   if (p.type === "wordlist") {
-    const struct = p.items.filter((it) => it.kind === "structure");
-    const content = p.items.filter((it) => it.kind !== "structure");
-    const table = (rows) => `
+    return `
+      <p class="ex-num">${p.num}</p>
+      <h2>${escapeHtml(p.heading)}</h2>
+      <p class="tiny">${escapeHtml(p.note || "")} · ${p.items.length} palabras</p>
       <table class="lex">
         <thead><tr><th>English</th><th>Español</th></tr></thead>
         <tbody>
-          ${rows.map((it) => `<tr>
-            <td><button class="word" data-say="${encodeURIComponent(it.en)}">${it.en}</button></td>
-            <td>${it.es || "—"}</td>
+          ${p.items.map((it) => `<tr>
+            <td><button class="word" data-say="${encodeURIComponent(it.en)}">${escapeHtml(it.en)}</button></td>
+            <td>${escapeHtml(it.es || "—")}</td>
           </tr>`).join("")}
         </tbody>
       </table>`;
-    return `
-      <p class="ex-num">${p.num}</p>
-      <h2>${p.heading}</h2>
-      <p class="tiny">${p.note || ""} · ${p.items.length} palabras</p>
-      <h3 class="subhead">Estructura</h3>
-      ${table(struct)}
-      <h3 class="subhead">Léxico</h3>
-      ${table(content)}`;
   }
   if (p.type === "vocab") {
     return `
       <p class="ex-num">${p.num}</p>
-      <h2>${p.heading}</h2>
-      <p class="tiny">${p.note || "Lee cada par. Pulsa la palabra en inglés para oírla."}</p>
+      <h2>${escapeHtml(p.heading || "Palabras nuevas")}</h2>
+      <p class="tiny">${escapeHtml(p.note || "Lee cada palabra. Pulsa el inglés para oírlo. Debajo va cómo suena, escrito a la española.")}</p>
       <table class="lex">
         <thead><tr><th>English</th><th>Español</th></tr></thead>
         <tbody>
-          ${p.items.map((it, i) => `<tr>
-            <td><button class="word" data-say="${encodeURIComponent(it.en)}">${it.en}</button><div class="ipa">${it.ipa || ""}</div></td>
-            <td>${it.es}</td>
+          ${p.items.map((it) => `<tr>
+            <td><button class="word" data-say="${encodeURIComponent(it.en)}">${escapeHtml(it.en)}</button><div class="ipa">${escapeHtml(it.say || it.ipa || "")}</div></td>
+            <td>${escapeHtml(it.es)}</td>
           </tr>`).join("")}
         </tbody>
       </table>`;
@@ -676,79 +811,92 @@ function viewPage() {
   if (p.type === "grammar") {
     return `
       <p class="ex-num">${p.num}</p>
-      <h2>${p.heading}</h2>
-      <div class="rule-box"><p>${p.rule}</p></div>
-      <table class="lex">
-        <thead><tr>${p.table.headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+      <h2>${escapeHtml(p.heading)}</h2>
+      <div class="rule-box">${paragraphs(p.explain || p.rule)}</div>
+      ${p.table ? `<div class="table-wrap"><table class="lex">
+        <thead><tr>${p.table.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
         <tbody>${p.table.rows.map((r) => `<tr>${r.map((c) => `<td>${fill(c)}</td>`).join("")}</tr>`).join("")}</tbody>
-      </table>
+      </table></div>` : ""}
+      <h3 class="subhead">Ejemplos</h3>
       <div class="examples">
-        ${p.examples.map((ex) => `<p><button class="word" data-say="${encodeURIComponent(ex.en)}">${fill(ex.en)}</button><span> — ${ex.es}</span></p>`).join("")}
+        ${(p.examples || []).map((ex) => `<p><button class="word" data-say="${encodeURIComponent(ex.en)}">${fill(ex.en)}</button><span> — ${fill(ex.es)}</span></p>`).join("")}
       </div>
-      ${p.note ? `<p class="tiny">${p.note}</p>` : ""}`;
+      ${p.mistakes?.length ? `<h3 class="subhead">Cuidado con estos errores</h3>
+        <ul class="mistakes">${p.mistakes.map((m) => `<li><s>${fill(m.wrong)}</s> → <b>${fill(m.right)}</b><small>${fill(m.why)}</small></li>`).join("")}</ul>` : ""}
+      ${p.note ? `<p class="tiny">${fill(p.note)}</p>` : ""}`;
   }
   if (p.type === "fill") {
     return exerciseWrap(p, p.items.map((it, i) => `
       <label class="drill">
         <span class="n">${i + 1}.</span>
         <span>${fill(it.before)}</span>
-        <input data-q="${i}" autocomplete="off" value="${escapeAttr(savedAns(i))}">
+        <input data-q="${i}" autocomplete="off" autocapitalize="off" value="${escapeAttr(savedAns(i))}">
         <span>${fill(it.after)}</span>
       </label>`).join("") + checkBtn());
   }
-  if (p.type === "choose") {
-    return exerciseWrap(p, p.items.map((it, i) => `
-      <fieldset class="drill-block">
-        <legend>${i + 1}. ${fill(it.prompt)}</legend>
-        ${it.options.map((o, j) => `
-          <label class="radio"><input type="radio" name="q${i}" value="${j}" ${String(savedAns(i)) === String(j) ? "checked" : ""}> ${fill(o)}</label>
-        `).join("")}
-      </fieldset>`).join("") + checkBtn());
-  }
+  if (p.type === "choose") return exerciseWrap(p, chooseItems(p.items) + checkBtn());
   if (p.type === "order") {
-    return exerciseWrap(p, p.items.map((it, i) => {
-      const built = savedAns(i) || "";
-      const pool = shuffleStable(it.words, lesson().id + state.page + i);
-      return `<div class="drill-block" data-order="${i}">
-        <p>${i + 1}. Arma la frase.</p>
-        <div class="built" data-built="${i}">${built ? escapeHtml(built) : "<span class='ghost'>Toca las palabras</span>"}</div>
-        <div class="pool">${tiles(pool, built, i)}
-          <button type="button" class="tile ghost" data-clear="${i}">borrar</button>
-        </div>
-      </div>`;
-    }).join("") + checkBtn());
+    return exerciseWrap(p, p.items.map((it, i) => orderField(it, i, lesson().id + state.page + i)).join("") + checkBtn());
   }
   if (p.type === "translate") {
     return exerciseWrap(p, p.items.map((it, i) => `
       <label class="drill-block">
         <span>${i + 1}. ${fill(it.es)}</span>
-        <input class="line" data-q="${i}" placeholder="Escribe en inglés" value="${escapeAttr(savedAns(i))}">
+        <input class="line" data-q="${i}" autocomplete="off" autocapitalize="off" placeholder="Escribe en inglés" value="${escapeAttr(savedAns(i))}">
       </label>`).join("") + checkBtn());
+  }
+  if (p.type === "reading") {
+    return `
+      <p class="ex-num">${p.num}</p>
+      <h2>${escapeHtml(p.heading)}</h2>
+      <div class="rule-box"><p>${fill(p.before)}</p></div>
+      <article class="reading">
+        ${p.title ? `<h3>${fill(p.title)}</h3>` : ""}
+        <p>${p.text.map((s) => fill(s)).join(" ")}</p>
+        <button class="btn secondary" data-say="${encodeURIComponent(p.text.join(" "))}" type="button">Oír el texto</button>
+      </article>
+      <h3 class="subhead">Preguntas</h3>
+      <form id="ex" class="stack" onsubmit="return false">${chooseItems(p.items)}${checkBtn()}</form>
+      <div id="key" class="key"></div>`;
+  }
+  if (p.type === "write") {
+    return `
+      <p class="ex-num">${p.num}</p>
+      <h2>${escapeHtml(p.heading)}</h2>
+      <p class="tiny">${fill(p.instruction)}</p>
+      <ol class="write-list">
+        ${p.prompts.map((x, i) => `<li>
+          <p>${fill(x.es)}</p>
+          <textarea data-q="${i}" rows="3" autocapitalize="sentences" placeholder="Escribe aquí o en tu cuaderno">${escapeHtml(savedAns(i))}</textarea>
+          <details><summary>Ver el modelo</summary><p class="model"><button class="word" data-say="${encodeURIComponent(x.model)}">${fill(x.model)}</button></p></details>
+        </li>`).join("")}
+      </ol>
+      <p class="tiny">Esta página no tiene nota. Compara tu respuesta con el modelo y corrige tú mismo. Tu profesor puede pedirte el cuaderno.</p>`;
   }
   if (p.type === "dialogue") {
     return `
       <p class="ex-num">${p.num}</p>
-      <h2>${p.heading}</h2>
-      <p class="tiny">${p.instruction || "Lee el diálogo. Oye. Di las líneas TÚ."}</p>
+      <h2>${escapeHtml(p.heading)}</h2>
+      <p class="tiny">${fill(p.instruction || "Lee y escucha el diálogo. Luego di en voz alta las líneas de TÚ.")}</p>
       <div class="dialogue">
         ${p.lines.map((ln) => `
           <div class="bubble ${ln.who === "you" ? "you" : ""}">
             <button class="word" data-say="${encodeURIComponent(ln.en)}">${fill(ln.en)}</button>
-            <small>${ln.who === "you" ? "TÚ" : ln.who} · ${fill(ln.es)}</small>
+            <small>${ln.who === "you" ? "TÚ" : escapeHtml(ln.who)} · ${fill(ln.es)}</small>
           </div>`).join("")}
       </div>
       <button class="btn secondary" data-play>Oír el diálogo</button>`;
   }
-  if (p.type === "quiz" || p.type === "review") return viewQuiz(p);
+  if (isExamPage(p)) return viewExamPage(p);
   if (p.type === "speak") {
     return `
       <p class="ex-num">${p.num}</p>
-      <h2>${p.heading}</h2>
+      <h2>${escapeHtml(p.heading || "Di en voz alta")}</h2>
       <div class="rule-box center">
         <p class="phrase">${fill(p.prompt)}</p>
         <p class="meaning">${fill(p.es)}</p>
       </div>
-      <p class="tiny" id="heard">Di la frase. Si el micrófono no está, recítala y sigue.</p>
+      <p class="tiny" id="heard">Oye el modelo y repítelo en voz alta. Si tu teléfono tiene micrófono, pulsa «Hablar» y Puente te dice cuánto se parece.</p>
       <div class="row">
         <button class="btn terra" data-mic>Hablar</button>
         <button class="btn secondary" data-say="${encodeURIComponent(p.prompt)}">Oír el modelo</button>
@@ -757,30 +905,44 @@ function viewPage() {
   return "";
 }
 
+function chooseItems(items) {
+  return items.map((it, i) => `
+    <fieldset class="drill-block">
+      <legend>${i + 1}. ${fill(it.prompt)}</legend>
+      ${it.options.map((o, j) => `
+        <label class="radio"><input type="radio" name="q${i}" value="${j}" ${String(savedAns(i)) === String(j) ? "checked" : ""}> ${fill(o)}</label>
+      `).join("")}
+    </fieldset>`).join("");
+}
+function orderField(it, i, seed) {
+  const built = savedAns(i) || "";
+  const pool = shuffleStable(it.words, seed);
+  return `<div class="drill-block" data-order="${i}">
+    <p>${i + 1}. Arma la frase.${it.es ? ` <small>(${fill(it.es)})</small>` : ""}</p>
+    <div class="built">${built ? escapeHtml(built) : "<span class='ghost'>Toca las palabras en orden</span>"}</div>
+    <div class="pool">${tiles(pool, built, i)}
+      <button type="button" class="tile ghost" data-clear="${i}">borrar</button>
+    </div>
+  </div>`;
+}
 
-function itemFields(it, i) {
-  const kind = it.kind || "";
-  if (kind === "fill" || (!kind && it.before != null && it.answer && !it.options && !it.answers)) {
+// One field for any exam or practice item.
+function itemFields(it, i, seed) {
+  const kind = it.kind || G.itemKind(it);
+  if (kind === "fill") {
     return `<label class="drill"><span class="n">${i + 1}.</span><span>${fill(it.before || "")}</span>
-      <input data-q="${i}" autocomplete="off" value="${escapeAttr(savedAns(i))}"><span>${fill(it.after || "")}</span></label>`;
+      <input data-q="${i}" autocomplete="off" autocapitalize="off" value="${escapeAttr(savedAns(i))}"><span>${fill(it.after || "")}</span></label>`;
   }
-  if (kind === "choose" || it.options) {
+  if (kind === "choose") {
     return `<fieldset class="drill-block"><legend>${i + 1}. ${fill(it.prompt)}</legend>
       ${it.options.map((o, j) => `<label class="radio"><input type="radio" name="q${i}" value="${j}" ${String(savedAns(i)) === String(j) ? "checked" : ""}> ${fill(o)}</label>`).join("")}
     </fieldset>`;
   }
-  if (kind === "translate" || it.es) {
+  if (kind === "translate") {
     return `<label class="drill-block"><span>${i + 1}. ${fill(it.es)}</span>
-      <input class="line" data-q="${i}" placeholder="Escribe en inglés" value="${escapeAttr(savedAns(i))}"></label>`;
+      <input class="line" data-q="${i}" autocomplete="off" autocapitalize="off" placeholder="Escribe en inglés" value="${escapeAttr(savedAns(i))}"></label>`;
   }
-  if (kind === "order" || it.words) {
-    const built = savedAns(i) || "";
-    const pool = shuffleStable(it.words, keyFor("tiles" + i) + String(examScore({ type: state.view === "practice" ? "practice" : page()?.type })?.attempts || 0));
-    return `<div class="drill-block"><p>${i + 1}. Arma la frase.</p>
-      <div class="built">${built ? escapeHtml(built) : "<span class='ghost'>Toca las palabras</span>"}</div>
-      <div class="pool">${tiles(pool, built, i)}
-        <button type="button" class="tile ghost" data-clear="${i}">borrar</button></div></div>`;
-  }
+  if (kind === "order") return orderField(it, i, seed + ":" + i);
   return "";
 }
 
@@ -795,71 +957,193 @@ function tiles(pool, built, i) {
   }).join("");
 }
 
-// One question at a time for exams, reviews and practice sets; nothing is marked until it's handed in.
+const EXAM_NAME = { quiz: "Examen de la lección", review: "Repaso", exam: "Examen de la unidad" };
+
+// Exam pages. Students get a server-drawn exam; after grading they see every mistake corrected.
+function viewExamPage(p) {
+  if (state.role === "teacher") return teacherExamView(p);
+  const box = examBox();
+  const head = `<p class="ex-num">${p.num}</p><h2>${escapeHtml(p.heading || EXAM_NAME[p.type])}</h2>`;
+  if (!box.loaded) {
+    if (!box.loading) setTimeout(() => loadExam(false), 0);
+    return head + `<p class="tiny">Cargando examen…</p>`;
+  }
+  if (box.error) return head + `<p class="bad">${escapeHtml(box.error)}</p><button class="btn" id="exam-retry">Intentarlo otra vez</button>`;
+  if (box.showResult && box.last) {
+    const L = lesson();
+    const passed = box.last.passed;
+    const lastPage = state.page === L.pages.length - 1;
+    const firstStudy = L.pages.findIndex((x) => x.type === "grammar");
+    return head + resultHtml(box.last, itemsFromRefs(box.last.items), p.type) + `
+      <div class="row wrap">
+        ${passed
+          ? `<button class="btn" data-next>${lastPage ? "Volver al índice" : "Continuar"}</button>
+             <button class="btn secondary" id="exam-new">Hacer otro examen (práctica)</button>`
+          : `${firstStudy >= 0 ? `<button class="btn secondary" data-goto="${firstStudy}">Repasar la explicación</button>` : ""}
+             <button class="btn terra" id="exam-new">Hacer un examen nuevo</button>`}
+      </div>`;
+  }
+  if (box.exam) {
+    const items = itemsFromRefs(box.exam.items);
+    return viewQuiz({ ...p, heading: p.heading || EXAM_NAME[p.type], items, instruction: examInstruction(p) });
+  }
+  const sc = scoreOf(lesson().id);
+  const n = p.size || (p.type === "quiz" ? 12 : p.type === "review" ? 20 : 25);
+  return head + `
+    <div class="rule-box">
+      <p>${examInstruction(p)}</p>
+      <p>${n} preguntas. Necesitas ${PASS()}% para seguir. Si no llegas, verás tus errores corregidos y podrás hacer un examen nuevo, con otras preguntas.</p>
+    </div>
+    ${sc ? `<p class="tiny">Tu mejor nota: ${sc.best ?? sc.percent}%${sc.passed ? " · aprobado" : ""}.</p>` : ""}
+    <button class="btn terra full" id="exam-start">Empezar el examen</button>`;
+}
+function examInstruction(p) {
+  if (p.type === "review") return "Este repaso mezcla las últimas lecciones con lecciones anteriores. Lo que te costó antes sale más veces. Una pregunta cada vez: «Siguiente pregunta» no corrige; al final pulsas «Entregar».";
+  if (p.type === "exam") return "Examen de toda la unidad, con algunas preguntas de lo que te costó en unidades anteriores. Una pregunta cada vez: «Siguiente pregunta» no corrige; al final pulsas «Entregar».";
+  return "Preguntas solo de esta lección. Una pregunta cada vez: «Siguiente pregunta» no corrige; al final pulsas «Entregar».";
+}
+
+// One question at a time for exams and practice sets; nothing is marked until it's handed in.
 function viewQuiz(p) {
+  if (!p.items.length) return `<p class="tiny">No hay preguntas.</p>`;
   if (state.qIndex == null || state.qIndex < 0) state.qIndex = 0;
   if (state.qIndex > p.items.length - 1) state.qIndex = p.items.length - 1;
   const i = state.qIndex;
   const it = p.items[i];
   const last = i === p.items.length - 1;
-  const sc = examScore(p);
-  const set = p.type === "practice" ? state.practiceSets[state.practiceId] : null;
-  const src = it.from ? lessonByFrom(it.from) : null;
-  let banner = `<div class="score">Pregunta ${i + 1} de ${p.items.length}. Siguiente no corrige. Entregar solo al final.</div>`;
-  if (sc) banner = `<div class="score ${sc.passed ? "pass" : "fail"}">Último resultado: <b>${sc.percent}%</b> · ${sc.passed ? "Aprobado." : "Mínimo " + PASS() + "%."}${sc.attempts ? " Intentos: " + sc.attempts : ""}</div>`;
-  else if (set?.best_percent != null) banner = `<div class="score ${set.status === "done" ? "pass" : ""}">Mejor resultado hasta ahora: <b>${set.best_percent}%</b>${set.status === "done" ? " · Completada." : ""}</div>`;
+  const answered = p.items.filter((_, k) => String(savedAns(k)).trim() !== "").length;
+  const src = it.from ? lessonById(it.from) : null;
   const srcIdx = src ? BANK.lessonIndex.get(src.id) : -1;
-  const fromBox = src && srcIdx >= 0 && unlocked(srcIdx) && (p.type === "practice" || src.id !== lesson()?.id)
-    ? `<div class="score">Si te atascas: esto sale de <b>ENGL ${src.level} · Lección ${src.num} · ${src.title}</b>.
-      <button class="btn secondary" id="jump-from" type="button">Ir a esa lección</button></div>` : "";
+  const fromBox = src && srcIdx >= 0 && unlocked(srcIdx) && src.id !== lesson()?.id
+    ? `<p class="tiny from">Esta pregunta es de la lección ${src.elective ? "" : src.num + ": "}${escapeHtml(src.title)}.</p>` : "";
   return `
-    <p class="ex-num">${p.num}</p>
+    <p class="ex-num">${escapeHtml(String(p.num))}</p>
     <h2>${escapeHtml(p.heading)}</h2>
-    <p class="tiny">${p.instruction || ""}</p>
-    ${banner}
+    <p class="tiny">${escapeHtml(p.instruction || "")}</p>
+    <div class="progress-bar" aria-hidden="true"><span style="width:${Math.round(((i + 1) / p.items.length) * 100)}%"></span></div>
+    <p class="chip">Pregunta ${i + 1} de ${p.items.length} · respondidas ${answered}</p>
     ${fromBox}
-    <p class="chip">Pregunta ${i + 1} / ${p.items.length}</p>
     <form id="ex" class="stack" onsubmit="return false">
-      ${itemFields(it, i)}
+      ${itemFields(it, i, activeExamKey() || "q")}
       <div class="pager">
         <button class="btn secondary" id="qprev" type="button" ${i === 0 ? "disabled" : ""}>Pregunta anterior</button>
         ${last
-          ? `<button class="btn terra" id="check" type="button">${p.type === "practice" ? "Entregar práctica" : "Entregar examen"}</button>`
+          ? `<button class="btn terra" id="check" type="button">${p.type === "practice" ? "Entregar práctica" : "Entregar"}</button>`
           : `<button class="btn" id="qnext" type="button">Siguiente pregunta</button>`}
       </div>
       <p id="submit-msg" class="bad" role="alert"></p>
-      <button class="btn secondary" id="retake" type="button">Empezar de nuevo</button>
-    </form>
-    <div id="key" class="key">${sc && last ? reviewHtml(p, sc) : ""}</div>`;
+    </form>`;
 }
 
-// Rebuilds the answer sheet from the right/wrong string the server returns.
-function reviewHtml(p, sc) {
-  if (!sc.res || sc.res.length !== p.items.length) return "";
-  const lines = p.items.map((it, i) => {
-    const ok = sc.res[i] === "1";
-    return `<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : "Clave: " + escapeHtml(G.keyText(it, G.itemKind(it), state.name))}</div>`;
-  });
-  const passed = sc.lastPassed ?? sc.passed;
-  return `<strong>${passed ? "Aprobado" : "Suspenso"}</strong> · ${sc.percent}% (${sc.right}/${sc.total}) · mínimo ${PASS()}%
-    <div class="stack" style="margin-top:8px">${lines.join("")}</div>`;
+// The question as the student saw it, their answer, the right answer and why. Shown after grading.
+function correctionHtml(it, r, n) {
+  const kind = it.kind || G.itemKind(it);
+  const key = G.keyText(it, kind, state.name);
+  let question = "";
+  let given = r.given ?? "";
+  if (kind === "choose") {
+    question = fill(it.prompt);
+    given = given !== "" && it.options[Number(given)] != null ? it.options[Number(given)] : "";
+  }
+  if (kind === "fill") question = `${fill(it.before || "")} <span class="blank">____</span> ${fill(it.after || "")}`;
+  if (kind === "translate") question = `Pasa al inglés: ${fill(it.es)}`;
+  if (kind === "order") question = `Arma la frase${it.es ? `: ${fill(it.es)}` : "."}`;
+  return `<li class="correction">
+    <p class="q"><span class="n">${n}.</span> ${question}</p>
+    <p class="yours">Tu respuesta: <s>${given !== "" ? fill(String(given)) : "(en blanco)"}</s></p>
+    <p class="right">Correcta: <b>${fill(key)}</b></p>
+    ${it.why ? `<p class="why">${fill(it.why)}</p>` : ""}
+  </li>`;
 }
 
-function lessonByFrom(id) {
-  return book().lessons.find((L) => L.id === id);
+function resultHtml(res, items, type) {
+  const results = res.results || [];
+  const wrong = results.map((r, i) => ({ r, it: items[i], n: i + 1 })).filter((x) => x.it && !x.r.ok);
+  const right = results.length - wrong.length;
+  const passed = res.percent >= PASS();
+  const msg = passed
+    ? (wrong.length ? "¡Aprobado! Mira abajo las preguntas que fallaste: esos puntos volverán en tus repasos." : "¡Perfecto! Todas bien.")
+    : `Necesitas ${PASS()}%. No pasa nada: lee cada corrección con calma, repasa la explicación y haz un examen nuevo. Tendrá otras preguntas sobre lo mismo.`;
+  return `
+    <div class="result ${passed ? "pass" : "fail"}">
+      <p class="big">${res.percent}%</p>
+      <p><strong>${passed ? "Aprobado" : "Todavía no"}</strong> · ${right} de ${results.length} bien</p>
+      <p class="tiny">${msg}</p>
+    </div>
+    ${wrong.length ? `<h3 class="subhead">Tus correcciones (${wrong.length})</h3>
+      <ol class="corrections">${wrong.map((x) => correctionHtml(x.it, x.r, x.n)).join("")}</ol>` : ""}
+    ${type !== "practice" && state.tracking.length && !passed ? `<p class="tiny">Puente te preparó una práctica con esto. La encuentras en el índice.</p>` : ""}`;
+}
+
+// ---------- teacher views of lessons
+
+function teacherLessonNote(L) {
+  const m = L.map || {};
+  return `<details class="teacher-note" open><summary>Para el profesor</summary>
+    <dl>
+      ${m.grammar ? `<dt>Gramática</dt><dd>${escapeHtml(m.grammar)}</dd>` : ""}
+      ${m.vocab ? `<dt>Vocabulario</dt><dd>${escapeHtml(m.vocab)}${m.words?.length ? ` <small>(${m.words.map(escapeHtml).join(", ")})</small>` : ""}</dd>` : ""}
+      ${m.communication ? `<dt>Comunicación</dt><dd>${escapeHtml(m.communication)}</dd>` : ""}
+      ${m.readingWriting ? `<dt>Lectura y escritura</dt><dd>${escapeHtml(m.readingWriting)}</dd>` : ""}
+      ${m.teaches?.length ? `<dt>Qué se enseña</dt><dd><ul>${m.teaches.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul></dd>` : ""}
+      ${m.prereqs?.length ? `<dt>Requisito</dt><dd>${m.prereqs.map((id) => escapeHtml(lessonLabel(id))).join(", ")}</dd>` : ""}
+    </dl></details>`;
+}
+
+// The teacher sees the whole question bank of a lesson exam, with answers, and can try a sample.
+function teacherExamView(p) {
+  const L = lesson();
+  const box = examBox();
+  const head = `<p class="ex-num">${p.num}</p><h2>${escapeHtml(p.heading || EXAM_NAME[p.type])}</h2>`;
+  if (box.sample && box.sampleResult) {
+    return head + resultHtml(box.sampleResult, itemsFromRefs(box.sample), p.type)
+      + `<button class="btn secondary" id="sample-close">Volver al banco de preguntas</button>`;
+  }
+  if (box.sample) {
+    return `<p class="tiny">Vista de prueba: esta nota no se guarda.</p>`
+      + viewQuiz({ ...p, heading: `${EXAM_NAME[p.type]} (prueba)`, items: itemsFromRefs(box.sample), instruction: examInstruction(p) })
+      + `<button class="btn secondary" id="sample-close">Salir de la prueba</button>`;
+  }
+  if (p.type === "quiz") {
+    const bankItems = p.items.map((it) => ({ ...it, kind: it.kind || G.itemKind(it) }));
+    return head + `
+      <div class="rule-box"><p>Banco de ${bankItems.length} preguntas. Cada alumno recibe ${p.size || 12} al azar (sin más de 5 del mismo tipo), y primero las que falló o no ha visto. Si suspende, el examen nuevo evita las preguntas del anterior.</p></div>
+      <button class="btn terra" id="sample-start">Probar el examen como alumno</button>
+      <ol class="bank-list">${bankItems.map((it) => `<li>${bankLine(it)}</li>`).join("")}</ol>`;
+  }
+  const covers = (L.map?.covers || []).map((id) => lessonLabel(id));
+  return head + `
+    <div class="rule-box">
+      <p>${p.type === "review"
+        ? `Cada alumno recibe ${p.size || 20} preguntas: hasta un 40% de los conceptos que tiene «en seguimiento» (los que falló y todavía no domina), un 20% de lecciones más antiguas, y el resto de estas lecciones:`
+        : `Cada alumno recibe ${p.size || 25} preguntas de toda la unidad, más hasta un 20% de conceptos en seguimiento de unidades anteriores. Lecciones de la unidad:`}</p>
+      <ul>${covers.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>
+      <p>Si el alumno no llega al ${PASS()}%, ve sus correcciones y recibe un examen nuevo con otras preguntas.</p>
+    </div>
+    <button class="btn terra" id="sample-start">Ver un ejemplo como alumno nuevo</button>`;
+}
+function bankLine(it) {
+  const k = it.kind;
+  const key = G.keyText(it, k, state.name || "Alex");
+  let q = "";
+  if (k === "choose") q = `${fill(it.prompt)} <small>(${it.options.map((o, j) => (j === it.answer ? `<b>${fill(o)}</b>` : fill(o))).join(" / ")})</small>`;
+  if (k === "fill") q = `${fill(it.before || "")} <b>[${fill((it.answers || [it.answer]).join(" | "))}]</b> ${fill(it.after || "")}`;
+  if (k === "translate") q = `${fill(it.es)} → <b>${fill((it.answers || []).join(" | "))}</b>`;
+  if (k === "order") q = `${escapeHtml((it.words || []).join(" · "))} → <b>${fill(key)}</b>`;
+  return `<span class="chip quiet">${SKILL_ES[k] || k}</span> ${q}${it.why ? `<small class="why">${fill(it.why)}</small>` : ""}`;
 }
 
 function exerciseWrap(p, inner) {
   return `
     <p class="ex-num">${p.num}</p>
-    <h2>${p.heading}</h2>
-    <p class="tiny">${p.instruction || "Escribe. Luego comprueba."}</p>
+    <h2>${escapeHtml(p.heading)}</h2>
+    <p class="tiny">${fill(p.instruction || "Responde y luego pulsa «Comprobar».")}</p>
     <form id="ex" class="stack" onsubmit="return false">${inner}</form>
     <div id="key" class="key"></div>`;
 }
 
 function checkBtn() {
-  return `<button class="btn secondary" id="check">Comprobar</button>`;
+  return `<button class="btn secondary" id="check" type="button">Comprobar</button>`;
 }
 
 function currentItems() {
@@ -867,7 +1151,13 @@ function currentItems() {
     const set = state.practiceSets[state.practiceId];
     return set ? practicePage(set).items : [];
   }
-  return page()?.items || [];
+  const p = page();
+  if (isExamPage(p)) {
+    const box = examBox();
+    if (state.role === "teacher") return itemsFromRefs(box?.sample);
+    return itemsFromRefs(box?.exam?.items);
+  }
+  return p?.items || [];
 }
 
 function bindNav() {
@@ -881,8 +1171,9 @@ function bindNav() {
   $$("[data-open]").forEach((b) => b.addEventListener("click", () => {
     const i = Number(b.dataset.open);
     if (!unlocked(i)) return;
+    const same = state.lesson === i;
     state.lesson = i;
-    state.page = 0;
+    if (!same || state.view !== "toc") state.page = 0;
     state.qIndex = 0;
     state.view = "lesson";
     save();
@@ -892,12 +1183,22 @@ function bindNav() {
   $$("[data-practice]").forEach((b) => b.addEventListener("click", () => {
     state.practiceId = Number(b.dataset.practice);
     state.qIndex = 0;
+    if (state.practiceResults[state.practiceId]) state.practiceResults[state.practiceId].show = false;
     state.view = "practice";
     save();
     render();
     window.scrollTo(0, 0);
   }));
   $("#dismiss")?.addEventListener("click", () => { state.notice = ""; render(); });
+  $("#save-phone")?.addEventListener("click", async () => {
+    const m = $("#phone-msg");
+    try {
+      const r = await api("PUT", "student/phone", { phone: $("#my-phone").value });
+      state.phone = r.phone;
+      state.notice = "WhatsApp guardado. ¡Gracias!";
+      render();
+    } catch (e) { if (m) m.textContent = e.message; }
+  });
   $("#logout")?.addEventListener("click", async (e) => {
     e.preventDefault();
     pulseTime();
@@ -918,9 +1219,38 @@ function bindPage() {
   $("[data-prev]")?.addEventListener("click", () => {
     if (state.page > 0) { state.page -= 1; state.qIndex = 0; save(); render(); window.scrollTo(0, 0); }
   });
-  $("[data-next]")?.addEventListener("click", () => nextPage());
+  $$("[data-next]").forEach((b) => b.addEventListener("click", () => nextPage()));
+  $$("[data-goto]").forEach((b) => b.addEventListener("click", () => {
+    state.page = Number(b.dataset.goto); state.qIndex = 0; save(); render(); window.scrollTo(0, 0);
+  }));
   $("#check")?.addEventListener("click", grade);
-  $("#retake")?.addEventListener("click", retakeQuiz);
+  $("#exam-start")?.addEventListener("click", () => loadExam(true));
+  $("#exam-new")?.addEventListener("click", () => { examBox().showResult = false; loadExam(true); window.scrollTo(0, 0); });
+  $("#exam-retry")?.addEventListener("click", () => { const b = examBox(); b.loaded = false; b.error = ""; render(); });
+  $("#practice-again")?.addEventListener("click", () => {
+    const r = state.practiceResults[state.practiceId];
+    if (r) r.show = false;
+    retakeQuiz();
+  });
+  $("#sample-start")?.addEventListener("click", async () => {
+    const box = examBox();
+    const p = page();
+    if (p.type === "quiz") {
+      // same rule as the server: 12 from the bank, no more than 5 of a kind
+      const refs = BANK.items.filter((e) => e.lessonId === lesson().id && e.pool === "exam");
+      const shuffled = shuffleStable(refs, String(Date.now()));
+      const per = {};
+      box.sample = shuffled.filter((e) => ((per[e.skill] = (per[e.skill] || 0) + 1) <= 5)).slice(0, p.size || 12).map((e) => e.ref);
+    } else {
+      try { box.sample = (await api("POST", "teacher/sample-exam", { lessonId: lesson().id })).items; }
+      catch (e) { state.notice = e.message; }
+    }
+    box.sampleResult = null;
+    currentItems().forEach((_, i) => { delete state.answers[keyFor(i)]; });
+    state.qIndex = 0;
+    render();
+  });
+  $("#sample-close")?.addEventListener("click", () => { const b = examBox(); b.sample = null; b.sampleResult = null; render(); });
   $("#qnext")?.addEventListener("click", () => {
     state.qIndex = Math.min((state.qIndex || 0) + 1, currentItems().length - 1);
     save();
@@ -931,28 +1261,17 @@ function bindPage() {
     save();
     render();
   });
-  $("#jump-from")?.addEventListener("click", () => {
-    const id = currentItems()[state.qIndex]?.from;
-    const idx = book().lessons.findIndex((L) => L.id === id);
-    if (idx < 0 || !unlocked(idx)) return;
-    state.lesson = idx;
-    state.page = 0;
-    state.qIndex = 0;
-    state.view = "lesson";
-    save();
-    render();
-    window.scrollTo(0, 0);
-  });
   $$("[data-q]").forEach((inp) => {
     inp.addEventListener("input", () => {
       state.answers[keyFor(inp.dataset.q)] = inp.value;
       save();
     });
+    if (inp.tagName === "TEXTAREA") return;
     inp.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
       // Enter moves to the next exam question but never hands the exam in by accident.
-      const exam = state.view === "practice" || page()?.type === "quiz" || page()?.type === "review";
+      const exam = state.view === "practice" || isExamPage(page());
       (exam ? $("#qnext") : $("#check"))?.click();
     });
   });
@@ -977,7 +1296,7 @@ function bindPage() {
     for (const line of page().lines) {
       if (mine !== playToken) return;
       speak(line.en);
-      await wait(Math.min(2800, 500 + fillText(line.en).length * 75));
+      await wait(Math.min(3200, 600 + fillText(line.en).length * 80));
     }
   });
   $("[data-mic]")?.addEventListener("click", runMic);
@@ -987,7 +1306,7 @@ function nextPage() {
   const L = lesson();
   const p = page();
   const teacher = state.role === "teacher";
-  if (!teacher && (p?.type === "quiz" || p?.type === "review") && !examScore(p)?.passed) return;
+  if (!teacher && isExamPage(p) && !lessonCleared(L)) return;
   if (state.page < L.pages.length - 1) {
     state.page += 1;
     state.qIndex = 0;
@@ -996,8 +1315,7 @@ function nextPage() {
     window.scrollTo(0, 0);
     return;
   }
-  if (!teacher && !lessonCleared(L)) return;
-  state.view = "toc";
+  state.view = teacher ? "toc" : "toc";
   save();
   render();
   window.scrollTo(0, 0);
@@ -1005,26 +1323,28 @@ function nextPage() {
 
 function markItem(it, i, pageType) {
   const el = $("[data-q=\"" + i + "\"]");
-  const answer = el ? el.value : savedAns(i);
+  const answer = el && el.type !== "radio" ? el.value : savedAns(i);
   const r = G.mark(it, answer, state.name, pageType);
-  return { ok: r.ok, key: escapeHtml(r.key) };
+  return { ok: r.ok, key: r.key };
 }
 
-// Exercise pages: instant feedback here, and the result is sent to the server in the background
-// so it counts toward the student's strengths and weaknesses.
+// Exercise pages: instant feedback here (with the reason when there is one), and the result is sent
+// to the server in the background so it counts toward the student's strengths and weaknesses.
 function grade() {
-  const p = state.view === "practice" ? { type: "practice" } : page();
-  if (p.type === "quiz" || p.type === "review" || p.type === "practice") { submitExam(); return; }
+  if (state.view === "practice" || isExamPage(page())) { submitExam(); return; }
+  const p = page();
+  const pageType = p.type === "reading" ? "choose" : p.type;
   const out = [];
   let right = 0;
   const answers = {};
   p.items.forEach((it, i) => {
-    const { ok, key } = markItem(it, i, p.type);
+    const { ok, key } = markItem(it, i, pageType);
     answers[i] = savedAns(i);
     if (ok) right += 1;
-    out.push(`<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : "Clave: " + key}</div>`);
+    const blank = String(answers[i]).trim() === "";
+    out.push(`<div class="${ok ? "ok" : "bad"}">${i + 1}. ${ok ? "Bien" : `${blank ? "Sin responder. " : ""}Correcta: <b>${fill(key)}</b>${it.why ? ` <small>${fill(it.why)}</small>` : ""}`}</div>`);
   });
-  $("#key").innerHTML = `<strong>Clave</strong> · ${right}/${p.items.length}<div class="stack" style="margin-top:8px">${out.join("")}</div>`;
+  $("#key").innerHTML = `<strong>${right === p.items.length ? "¡Todo bien!" : "Revisa"}</strong> · ${right}/${p.items.length}<div class="stack" style="margin-top:8px">${out.join("")}</div>`;
   if (state.role === "student") {
     flush();
     api("POST", "grade", { source: "exercise", lessonId: lesson().id, page: state.page, answers }).catch(() => {});
@@ -1043,40 +1363,55 @@ function collectAnswers(n) {
 async function submitExam() {
   const practice = state.view === "practice";
   const set = practice ? state.practiceSets[state.practiceId] : null;
-  const p = practice ? practicePage(set) : page();
+  const items = currentItems();
   const btn = $("#check");
   if (btn?.disabled) return;
-  // The teacher can try an exam; it is marked here and never recorded.
+  const blank = items.length - Object.keys(collectAnswers(items.length)).length;
+  if (blank && !confirm(`Tienes ${blank} pregunta${blank > 1 ? "s" : ""} sin responder. ¿Entregar de todos modos?`)) return;
+  // The teacher's sample is marked here and never recorded.
   if (state.role === "teacher") {
-    let res = "";
-    p.items.forEach((it, i) => { res += markItem(it, i, null).ok ? "1" : "0"; });
-    const right = [...res].filter((c) => c === "1").length;
-    const percent = Math.round((right / p.items.length) * 100);
-    state.teacherResults[scoreKey(p)] = { percent, right, total: p.items.length, res, passed: percent >= PASS() };
+    const box = examBox();
+    const results = items.map((it, i) => ({ ok: G.mark(it, savedAns(i), state.name || "Alex", null).ok, given: savedAns(i) }));
+    const percent = Math.round((results.filter((r) => r.ok).length / items.length) * 100);
+    box.sampleResult = { percent, passed: percent >= PASS(), results };
     render();
+    window.scrollTo(0, 0);
     return;
   }
   if (btn) { btn.disabled = true; btn.textContent = "Entregando…"; }
+  const box = practice ? null : examBox();
   const body = practice
-    ? { source: "practice", assignmentId: state.practiceId, answers: collectAnswers(p.items.length) }
-    : { source: p.type, lessonId: lesson().id, page: state.page, answers: collectAnswers(p.items.length) };
+    ? { source: "practice", assignmentId: state.practiceId, answers: collectAnswers(items.length) }
+    : { source: "exam", examId: box.exam.id, answers: collectAnswers(items.length) };
   try {
     await flush();
     const r = await api("POST", "grade", body);
     state.scores = r.scores;
     state.practice = r.practice;
+    if (r.tracking) state.tracking = r.tracking;
     if (practice) {
       const prev = state.practiceResults[state.practiceId];
-      state.practiceResults[state.practiceId] = { percent: r.percent, right: r.right, total: r.total, res: r.res, passed: r.passed, attempts: (prev?.attempts || 0) + 1 };
+      state.practiceResults[state.practiceId] = { percent: r.percent, passed: r.passed, results: r.results, attempts: (prev?.attempts || 0) + 1, show: true };
       set.best_percent = Math.max(set.best_percent ?? 0, r.percent);
       if (r.passed) set.status = "done";
+      items.forEach((_, i) => { delete state.answers[keyFor(i)]; });
+    } else {
+      const key = activeExamKey();
+      box.last = { ...box.exam, submittedAt: new Date().toISOString(), percent: r.percent, passed: r.passed, results: r.results };
+      box.exam = null;
+      box.showResult = true;
+      Object.keys(state.answers).forEach((k) => { if (k.startsWith(key + ":")) delete state.answers[k]; });
     }
-    if (r.newPractice) state.notice = "Tienes una práctica nueva con lo que más te cuesta. Está arriba en el índice.";
+    state.qIndex = 0;
+    if (r.newPractice && !r.passed) state.notice = "Puente te preparó una práctica con lo que te costó. Está en el índice.";
     state.insights = null;
+    save();
     render();
+    window.scrollTo(0, 0);
   } catch (e) {
     if (e.status === 401) return;
-    if (btn) { btn.disabled = false; btn.textContent = practice ? "Entregar práctica" : "Entregar examen"; }
+    if (e.status === 409 && !practice) { const b = examBox(); b.loaded = false; render(); return; }
+    if (btn) { btn.disabled = false; btn.textContent = practice ? "Entregar práctica" : "Entregar"; }
     const m = $("#submit-msg");
     if (m) m.textContent = e.message + " Tus respuestas siguen aquí.";
   }
@@ -1102,10 +1437,10 @@ async function runMic() {
     const b = G.norm(heard, state.name).split(" ");
     const hits = b.filter((w) => a.has(w)).length;
     const score = Math.round((hits / Math.max(a.size, 1)) * 100);
-    el.textContent = `Oí: “${heard}” · ${score}% cerca del modelo.`;
+    el.textContent = `Oí: “${heard}” · ${score}% parecido al modelo.`;
     el.className = score >= 55 ? "ok" : "tiny";
   } catch {
-    el.textContent = "Micrófono no disponible. Recita la frase y pasa la página.";
+    el.textContent = "El micrófono no está disponible. Di la frase en voz alta y pasa la página.";
   } finally {
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = "Hablar"; }
   }
@@ -1121,10 +1456,11 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&"<>']/g, ch => map[ch]);
 }
 window.PUENTE_ESC = escapeHtml;
+window.PUENTE_UI = { masteryHtml, lessonLabel, SKILL_ES, bankLine, correctionHtml, itemsFromRefs };
 function shuffleStable(arr, seed) {
   const a = [...arr];
   let h = 0;
-  for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  for (const c of String(seed)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   for (let i = a.length - 1; i > 0; i--) {
     h = (h * 1664525 + 1013904223) >>> 0;
     const j = h % (i + 1);

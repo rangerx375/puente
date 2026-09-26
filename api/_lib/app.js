@@ -3,6 +3,7 @@ const { db } = require("./db.js");
 const auth = require("./auth.js");
 const { book, bank, grading, PASS, lessonTitle } = require("./book.js");
 const L = require("./learning.js");
+const { EXERCISE_TYPES } = require("../../bank.js");
 
 // ---------- plumbing
 
@@ -40,19 +41,31 @@ async function readBody(req) {
 }
 
 const cleanName = (s) => String(s ?? "").replace(/[\u0000-\u001f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
-const deaccent = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const deaccent = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
 const nameKey = (first, last) => `${deaccent(first)}.${deaccent(last)}`.toLowerCase().replace(/\s+/g, "");
 const int = (v) => (Number.isInteger(Number(v)) ? Number(v) : NaN);
 const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const newCode = () => Array.from(crypto.randomBytes(6), (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
 const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 
+// WhatsApp numbers are stored as digits with the country code (wa.me wants exactly that).
+// A plain 10-digit number is a US number; anything written with + or 00 keeps its own country code.
+function normPhone(s) {
+  const raw = String(s ?? "").trim();
+  if (!raw) return null;
+  let d = raw.replace(/\D/g, "");
+  if (/^\+|^00/.test(raw)) d = d.replace(/^00/, "");
+  else if (d.length === 10) d = "1" + d;
+  if (d.length < 11 || d.length > 15) return null;
+  return d;
+}
+
 // ---------- shared queries
 
 async function attemptsFor(q, studentId) {
   const { rows } = await q(
-    `select source, lesson_id, percent, n_right, n_total, passed, res, created_at
-       from attempts where student_id = $1 and source in ('quiz','review') order by created_at, id`, [studentId]);
+    `select source, lesson_id, percent, n_right, n_total, passed, created_at
+       from attempts where student_id = $1 and source = any($2) order by created_at, id`, [studentId, L.EXAM_SOURCES]);
   return rows;
 }
 async function responsesFor(q, studentId) {
@@ -68,16 +81,21 @@ async function practiceList(q, studentId) {
       order by (status = 'open') desc, created_at desc limit 20`, [studentId]);
   return rows;
 }
+async function announcementsFor(q, classId, limit = 5) {
+  const { rows } = await q(
+    `select id, body, created_at from announcements where class_id = $1 order by created_at desc limit $2`, [classId, limit]);
+  return rows;
+}
 
 // After an exam or a practice set, replace an untouched automatic set with a fresh one aimed at
-// the student's current weakest areas. A set the student has already started is left alone.
+// the concepts the student is struggling with. A set the student has already started is left alone.
 async function refreshAutoPractice(q, studentId, scores) {
   const { rows: open } = await q(
     `select id, best_percent from assignments where student_id = $1 and origin = 'auto' and status = 'open'`, [studentId]);
   if (open.some((a) => a.best_percent != null)) return null;
   if (open.length) await q(`delete from assignments where id = any($1::bigint[])`, [open.map((a) => a.id)]);
   const responses = await responsesFor(q, studentId);
-  const focus = L.autoFocus(L.mastery(responses), L.openLessonCount(scores));
+  const focus = L.autoFocus(responses, scores);
   if (!focus.length) return null;
   const items = L.pickItems(focus, responses, 12, `${studentId}:${Date.now()}`);
   if (items.length < 6) return null;
@@ -94,19 +112,23 @@ async function studentLogin(q, body, res) {
   const first = cleanName(body.first);
   const last = cleanName(body.last);
   const pin = String(body.pin || "").trim();
+  const phoneRaw = String(body.phone || "").trim();
+  const phone = normPhone(phoneRaw);
   if (!code) fail(400, "Escribe el código de la clase.");
-  if (!first || !last) fail(400, "Escribe nombre y apellido.");
+  if (!first || !last) fail(400, "Escribe tu nombre y tus apellidos.");
   if (pin.length < 4 || pin.length > 40) fail(400, "La clave necesita al menos 4 caracteres.");
+  if (phoneRaw && !phone) fail(400, "El número de WhatsApp no parece correcto. Escribe los 10 números (por ejemplo 304 555 1234) o el número con + y el código del país.");
   const { rows: cls } = await q(`select id from classes where code = $1 and not archived`, [code]);
   if (!cls[0]) fail(404, "No existe una clase con ese código.");
   const key = nameKey(first, last);
   let { rows } = await q(`select * from students where class_id = $1 and name_key = $2`, [cls[0].id, key]);
   let st = rows[0];
   if (!st) {
+    if (!phone) fail(400, "Para registrarte, escribe tu número de WhatsApp. El profesor lo usa para mandarte avisos.");
     ({ rows } = await q(
-      `insert into students (class_id, first, last, name_key, pin_hash) values ($1, $2, $3, $4, $5)
+      `insert into students (class_id, first, last, name_key, pin_hash, phone) values ($1, $2, $3, $4, $5, $6)
        on conflict (class_id, name_key) do nothing returning *`,
-      [cls[0].id, first, last, key, auth.hashSecret(pin)]));
+      [cls[0].id, first, last, key, auth.hashSecret(pin), phone]));
     st = rows[0];
     if (!st) fail(409, "Ese nombre acaba de registrarse. Vuelve a pulsar Entrar.");
   } else {
@@ -117,6 +139,7 @@ async function studentLogin(q, body, res) {
       fail(401, "Ese nombre ya está en la clase y la clave no coincide. Si eres otra persona, añade tu segundo apellido. Si olvidaste la clave, pídele al profesor que la cambie.");
     }
     await auth.recordSuccess(q, "students", st.id);
+    if (phone && phone !== st.phone) await q(`update students set phone = $2 where id = $1`, [st.id, phone]);
   }
   await q(`update students set last_seen = now() where id = $1`, [st.id]);
   auth.setSession(res, "s", st.id, st.sv);
@@ -124,20 +147,24 @@ async function studentLogin(q, body, res) {
 }
 
 async function studentMe(q, user) {
-  const [{ rows: prog }, attempts, practice, { rows: homework }] = await Promise.all([
+  const [{ rows: prog }, attempts, practice, { rows: homework }, announcements, responses] = await Promise.all([
     q(`select state from progress where student_id = $1`, [user.id]),
     attemptsFor(q, user.id),
     practiceList(q, user.id),
-    q(`select lesson_id, to_char(due, 'YYYY-MM-DD') as due from homework where class_id = $1 order by lesson_id`, [user.class_id])
+    q(`select lesson_id, to_char(due, 'YYYY-MM-DD') as due from homework where class_id = $1 order by lesson_id`, [user.class_id]),
+    announcementsFor(q, user.class_id, 3),
+    responsesFor(q, user.id)
   ]);
   q(`update students set last_seen = now() where id = $1`, [user.id]).catch(() => {});
   return {
     role: "student",
-    student: { first: user.first, last: user.last, className: user.class_name, classCode: user.class_code },
+    student: { first: user.first, last: user.last, phone: user.phone || "", className: user.class_name, classCode: user.class_code },
     state: prog[0]?.state || {},
     scores: L.scoresFromAttempts(attempts),
+    tracking: L.tracking(responses).slice(0, 8),
     practice,
     homework,
+    announcements,
     pass: PASS
   };
 }
@@ -182,28 +209,77 @@ async function saveProgress(q, user, body) {
   return { ok: true, timeMs: out.timeMs };
 }
 
+// ---------- exams: every attempt is a fresh draw, stored so it can be resumed and graded exactly.
+
+const lessonOf = (id) => {
+  const li = bank.lessonIndex.get(String(id || ""));
+  if (li == null) fail(400, "Lección desconocida.");
+  return book.lessons[li];
+};
+function examShape(row) {
+  if (!row) return null;
+  return {
+    id: row.id, kind: row.kind, lessonId: row.lesson_id, items: row.items,
+    createdAt: row.created_at, submittedAt: row.submitted_at, percent: row.percent,
+    passed: row.percent != null ? row.percent >= PASS : null, results: row.results || null
+  };
+}
+
+// Returns the student's unfinished exam for this lesson (if any) and the last graded one.
+// With start=true and nothing unfinished, draws a new exam.
+async function openExam(q, user, body) {
+  const Lsn = lessonOf(body.lessonId);
+  const kind = L.examKind(Lsn);
+  if (!kind) fail(400, "Esta lección no tiene examen.");
+  const scores = L.scoresFromAttempts(await attemptsFor(q, user.id));
+  if (!L.isOpen(scores, Lsn.id)) fail(403, "Esa lección todavía está cerrada.");
+  const { rows } = await q(
+    `select * from exams where student_id = $1 and lesson_id = $2 order by created_at desc, id desc limit 10`, [user.id, Lsn.id]);
+  let current = rows.find((r) => !r.submitted_at) || null;
+  const last = rows.find((r) => r.submitted_at) || null;
+  if (!current && body.start) {
+    const responses = await responsesFor(q, user.id);
+    const items = L.buildExam(Lsn, responses, last?.items || [], scores, `${user.id}:${Lsn.id}:${Date.now()}`);
+    if (!items.length) fail(500, "No hay preguntas para este examen todavía.");
+    const { rows: made } = await q(
+      `insert into exams (student_id, lesson_id, kind, items) values ($1, $2, $3, $4) returning *`,
+      [user.id, Lsn.id, kind, JSON.stringify(items)]);
+    current = made[0];
+  }
+  return { exam: examShape(current), last: examShape(last), scores };
+}
+
 async function gradeSubmission(q, tx, user, body) {
   const source = String(body.source || "");
   const answers = isObj(body.answers) ? body.answers : {};
   let entries;
   let assignment = null;
+  let exam = null;
   let lessonId = null;
   let pageIdx = null;
+  let kind = source;
   const scoresBefore = L.scoresFromAttempts(await attemptsFor(q, user.id));
   if (source === "practice") {
     const { rows } = await q(`select * from assignments where id = $1 and student_id = $2`, [int(body.assignmentId), user.id]);
     assignment = rows[0];
     if (!assignment) fail(404, "Esa práctica no existe.");
     entries = assignment.items.map((ref) => bank.byRef.get(ref)).filter(Boolean);
-  } else if (["quiz", "review", "exercise"].includes(source)) {
-    lessonId = String(body.lessonId || "");
-    const li = bank.lessonIndex.get(lessonId);
-    if (li == null) fail(400, "Lección desconocida.");
-    if (!book.lessons[li].elective && li >= L.openLessonCount(scoresBefore)) fail(403, "Esa lección todavía está cerrada.");
+  } else if (source === "exam") {
+    const { rows } = await q(`select * from exams where id = $1 and student_id = $2`, [int(body.examId), user.id]);
+    exam = rows[0];
+    if (!exam) fail(404, "Ese examen no existe.");
+    if (exam.submitted_at) fail(409, "Este examen ya se entregó. Abre el examen otra vez para ver tu nota.");
+    lessonId = exam.lesson_id;
+    kind = exam.kind;
+    if (!L.isOpen(scoresBefore, lessonId)) fail(403, "Esa lección todavía está cerrada.");
+    entries = exam.items.map((ref) => bank.byRef.get(ref)).filter(Boolean);
+  } else if (source === "exercise") {
+    const Lsn = lessonOf(body.lessonId);
+    lessonId = Lsn.id;
+    if (!L.isOpen(scoresBefore, lessonId)) fail(403, "Esa lección todavía está cerrada.");
     pageIdx = int(body.page);
-    const p = book.lessons[li].pages[pageIdx];
-    const okType = source === "exercise" ? ["fill", "choose", "translate", "order"].includes(p?.type) : p?.type === source;
-    if (!okType) fail(400, "Página equivocada.");
+    const p = Lsn.pages[pageIdx];
+    if (!EXERCISE_TYPES.includes(p?.type)) fail(400, "Página equivocada.");
     entries = p.items.map((_, i) => bank.byRef.get(`${lessonId}/${pageIdx}/${i}`));
   } else {
     fail(400, "Tipo de entrega desconocido.");
@@ -214,7 +290,7 @@ async function gradeSubmission(q, tx, user, body) {
   const answered = (i) => answers[i] != null && String(answers[i]).trim() !== "";
   if (source === "exercise") {
     const keep = entries.map((e, i) => (answered(i) ? i : -1)).filter((i) => i >= 0);
-    if (!keep.length) return { percent: 0, right: 0, total: 0, passed: false, res: "", keys: [], scores: scoresBefore, practice: [], newPractice: null };
+    if (!keep.length) return { percent: 0, right: 0, total: 0, passed: false, results: [], scores: scoresBefore, practice: [], newPractice: null };
     const remapped = {};
     keep.forEach((i, j) => { remapped[j] = answers[i]; });
     entries = keep.map((i) => entries[i]);
@@ -222,23 +298,24 @@ async function gradeSubmission(q, tx, user, body) {
     Object.assign(answers, remapped);
   }
 
-  const results = entries.map((e, i) => grading.mark(e.item, answers[i], user.first, e.pageType));
-  const right = results.filter((r) => r.ok).length;
-  const total = results.length;
+  const marks = entries.map((e, i) => grading.mark(e.item, answers[i], user.first, e.pageType));
+  const right = marks.filter((r) => r.ok).length;
+  const total = marks.length;
   const percent = Math.round((right / total) * 100);
   const passed = percent >= PASS;
-  const res = results.map((r) => (r.ok ? "1" : "0")).join("");
+  const res = marks.map((r) => (r.ok ? "1" : "0")).join("");
+  const given = entries.map((e, i) => (answers[i] == null ? "" : String(answers[i]).slice(0, 200)));
+  const results = entries.map((e, i) => ({ ref: e.ref, ok: marks[i].ok, given: given[i] }));
 
   await tx(async (t) => {
     const { rows } = await t(
       `insert into attempts (student_id, source, lesson_id, page, assignment_id, percent, n_right, n_total, passed, res)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
-      [user.id, source, lessonId, pageIdx, assignment?.id || null, percent, right, total, passed, res]);
+      [user.id, kind, lessonId, pageIdx, assignment?.id || null, percent, right, total, passed, res]);
     const attemptId = rows[0].id;
     const params = [];
     const values = entries.map((e, i) => {
-      const a = answers[i];
-      params.push(attemptId, user.id, e.ref, e.topic, e.skill, results[i].ok, a == null ? null : String(a).slice(0, 200));
+      params.push(attemptId, user.id, e.ref, e.topic, e.skill, marks[i].ok, given[i] || null);
       const b = i * 7;
       return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7})`;
     });
@@ -250,23 +327,33 @@ async function gradeSubmission(q, tx, user, body) {
            completed_at = case when $3 and completed_at is null then now() else completed_at end
          where id = $1`, [assignment.id, percent, passed]);
     }
+    if (exam) {
+      const { rowCount } = await t(
+        `update exams set submitted_at = now(), percent = $2, results = $3 where id = $1 and submitted_at is null`,
+        [exam.id, percent, JSON.stringify(results)]);
+      if (!rowCount) fail(409, "Este examen ya se entregó.");
+    }
   });
 
   const scores = source === "exercise" ? scoresBefore : L.scoresFromAttempts(await attemptsFor(q, user.id));
   let newPractice = null;
-  if (source !== "exercise") newPractice = await refreshAutoPractice(q, user.id, scores);
+  let tracking = null;
+  if (source !== "exercise") {
+    newPractice = await refreshAutoPractice(q, user.id, scores);
+    tracking = L.tracking(await responsesFor(q, user.id)).slice(0, 8);
+  }
   return {
-    percent, right, total, passed, res,
-    keys: results.map((r) => (r.ok ? null : r.key)),
+    percent, right, total, passed, res, results,
     scores,
-    practice: await practiceList(q, user.id),
+    tracking,
+    practice: source === "exercise" ? [] : await practiceList(q, user.id),
     newPractice
   };
 }
 
 async function insights(q, studentId) {
-  const m = L.mastery(await responsesFor(q, studentId));
-  return { ...m, skills: L.SKILL_ES };
+  const responses = await responsesFor(q, studentId);
+  return { ...L.mastery(responses), tracking: L.tracking(responses), skills: L.SKILL_ES };
 }
 
 async function practiceDetail(q, studentId, id) {
@@ -330,7 +417,7 @@ async function ownClass(q, teacherId, classId) {
 }
 async function ownStudent(q, teacherId, studentId) {
   const { rows } = await q(
-    `select s.id, s.first, s.last, s.class_id, s.last_seen, s.created_at, c.name as class_name
+    `select s.id, s.first, s.last, s.phone, s.class_id, s.last_seen, s.created_at, c.name as class_name
        from students s join classes c on c.id = s.class_id where s.id = $1 and c.teacher_id = $2`, [studentId, teacherId]);
   if (!rows[0]) fail(404, "Alumno no encontrado.");
   return rows[0];
@@ -340,11 +427,11 @@ const sumTime = (state) => Object.values(isObj(state?.timeMs) ? state.timeMs : {
 
 async function classRoster(q, classId) {
   const [{ rows: students }, { rows: attempts }, { rows: responses }, { rows: sets }, { rows: homework }] = await Promise.all([
-    q(`select s.id, s.first, s.last, s.last_seen, p.state from students s left join progress p on p.student_id = s.id
+    q(`select s.id, s.first, s.last, s.phone, s.last_seen, s.created_at, p.state from students s left join progress p on p.student_id = s.id
         where s.class_id = $1 order by lower(s.last), lower(s.first)`, [classId]),
-    q(`select a.student_id, a.source, a.lesson_id, a.percent, a.n_right, a.n_total, a.passed, a.res, a.created_at
+    q(`select a.student_id, a.source, a.lesson_id, a.percent, a.n_right, a.n_total, a.passed, a.created_at
          from attempts a join students s on s.id = a.student_id
-        where s.class_id = $1 and a.source in ('quiz','review') order by a.created_at, a.id`, [classId]),
+        where s.class_id = $1 and a.source = any($2) order by a.created_at, a.id`, [classId, L.EXAM_SOURCES]),
     q(`select r.student_id, r.item_ref, r.topic, r.skill, r.correct, r.created_at
          from responses r join students s on s.id = r.student_id
         where s.class_id = $1 order by r.created_at desc, r.id desc limit 200000`, [classId]),
@@ -358,19 +445,23 @@ async function classRoster(q, classId) {
   const due = homework.map((h) => h.due).filter(Boolean).sort()[0] || null;
   const roster = students.map((s) => {
     const scores = L.scoresFromAttempts(att[s.id] || []);
-    const m = L.mastery(resp[s.id] || []);
+    const tracked = L.tracking(resp[s.id] || []);
     const passed = homework.filter((h) => L.lessonCleared(scores, h.lesson_id)).map((h) => h.lesson_id);
     const missing = homework.filter((h) => !L.lessonCleared(scores, h.lesson_id)).map((h) => h.lesson_id);
     const latest = (att[s.id] || []).slice(-1)[0];
     const late = !!(due && missing.length && Date.now() > new Date(due + "T23:59:59").getTime());
     const counts = Object.fromEntries((sets.filter((x) => x.student_id === s.id)).map((x) => [x.status, x.n]));
+    const open = L.openLessonCount(scores);
+    const at = L.core[Math.min(open, L.core.length) - 1];
     return {
-      id: s.id, first: s.first, last: s.last, lastSeen: s.last_seen,
+      id: s.id, first: s.first, last: s.last, phone: s.phone || "", lastSeen: s.last_seen, joined: s.created_at,
       timeMs: sumTime(s.state),
+      current: at ? { id: at.id, num: at.num, title: at.title, label: lessonTitle(at.id) } : null,
       homeworkPassed: passed, homeworkMissing: missing, late,
       ready: homework.length > 0 && missing.length === 0,
       lastExam: latest ? { lessonId: latest.lesson_id, source: latest.source, percent: latest.percent } : null,
-      weakest: m.weaknesses[0] ? { label: m.weaknesses[0].label, mastery: m.weaknesses[0].mastery } : null,
+      tracking: tracked.slice(0, 3).map((t) => ({ topic: t.topic, title: t.title })),
+      trackingCount: tracked.length,
       practiceOpen: counts.open || 0, practiceDone: counts.done || 0,
       scores
     };
@@ -385,9 +476,9 @@ async function teacherOverview(q, user, classId) {
       where c.teacher_id = $1 group by c.id order by c.archived, c.id`, [user.id]);
   const active = classes.filter((c) => !c.archived);
   const pick = classes.find((c) => c.id === classId) || active[0] || classes[0];
-  if (!pick) return { classes, cls: null, roster: [], homework: [] };
-  const { roster, homework } = await classRoster(q, pick.id);
-  return { teacher: { name: user.name }, classes, cls: pick, roster, homework };
+  if (!pick) return { classes, cls: null, roster: [], homework: [], announcements: [] };
+  const [{ roster, homework }, announcements] = await Promise.all([classRoster(q, pick.id), announcementsFor(q, pick.id, 20)]);
+  return { teacher: { name: user.name }, classes, cls: pick, roster, homework, announcements };
 }
 
 async function studentDetail(q, teacherId, studentId) {
@@ -409,11 +500,20 @@ async function studentDetail(q, teacherId, studentId) {
     scores,
     openLessons: L.openLessonCount(scores),
     insights: { ...L.mastery(responses), skills: L.SKILL_ES },
+    tracking: L.tracking(responses),
     practice: sets,
     recent,
     paper: Object.fromEntries(paper.map((p) => [p.lesson_id, p.grade])),
     timeMs: isObj(prog[0]?.state?.timeMs) ? prog[0].state.timeMs : {}
   };
+}
+
+// The last graded exams of one student, with every answer, so the teacher can see what went wrong.
+async function studentExams(q, teacherId, studentId) {
+  const st = await ownStudent(q, teacherId, studentId);
+  const { rows } = await q(
+    `select * from exams where student_id = $1 and submitted_at is not null order by submitted_at desc limit 15`, [st.id]);
+  return { exams: rows.map(examShape) };
 }
 
 async function teacherPractice(q, teacherId, studentId, body) {
@@ -450,20 +550,18 @@ async function classCsv(q, teacherId, classId) {
   const { rows: paper } = await q(
     `select p.student_id, p.lesson_id, p.grade from paper_grades p join students s on s.id = p.student_id where s.class_id = $1`, [cls.id]);
   const paperOf = (sid, lid) => paper.find((p) => p.student_id === sid && p.lesson_id === lid)?.grade ?? "";
-  const { rows: progress } = await q(
-    `select p.student_id, p.state from progress p join students s on s.id = p.student_id where s.class_id = $1`, [cls.id]);
-  const timeOf = (sid, lid) => Math.round((Number(progress.find((p) => p.student_id === sid)?.state?.timeMs?.[lid]) || 0) / 60000);
-  const head = ["last", "first", "time_total_min", "weakest_area", "practice_done", "practice_open",
-    ...book.lessons.flatMap((X) => [`${X.level}.${X.num}_exam`, `${X.level}.${X.num}_review`, `${X.level}.${X.num}_min`, `${X.level}.${X.num}_paper`])];
+  const cols = book.lessons.filter((X) => X.kind !== "lesson" || X.pages.some((p) => p.type === "quiz"));
+  const tag = (X) => (X.elective || !X.num ? X.id : `${X.num}`);
+  const head = ["last", "first", "whatsapp", "current_lesson", "time_total_min", "concepts_in_tracking", "practice_done", "practice_open",
+    ...cols.flatMap((X) => [`${tag(X)}_best`, `${tag(X)}_paper`])];
   const lines = [head.map(csvCell).join(",")];
   roster.forEach((s) => {
-    const row = [s.last, s.first, Math.round(s.timeMs / 60000), s.weakest?.label || "", s.practiceDone, s.practiceOpen];
-    book.lessons.forEach((X) => {
-      row.push(s.scores[X.id]?.percent ?? "", s.scores[X.id + "#review"]?.percent ?? "", timeOf(s.id, X.id), paperOf(s.id, X.id));
-    });
+    const row = [s.last, s.first, s.phone ? "+" + s.phone : "", s.current ? s.current.label : "",
+      Math.round(s.timeMs / 60000), s.tracking.map((t) => t.title).join("; "), s.practiceDone, s.practiceOpen];
+    cols.forEach((X) => { row.push(s.scores[X.id]?.best ?? "", paperOf(s.id, X.id)); });
     lines.push(row.map(csvCell).join(","));
   });
-  return "\uFEFF" + lines.join("\r\n");
+  return "﻿" + lines.join("\r\n");
 }
 
 // ---------- router
@@ -485,7 +583,14 @@ on("GET", "me", null, async ({ q, req }) => {
 });
 
 on("POST", "student/login", null, ({ q, body, res }) => studentLogin(q, body, res));
+on("PUT", "student/phone", "student", async ({ q, user, body }) => {
+  const phone = normPhone(body.phone);
+  if (!phone) fail(400, "El número de WhatsApp no parece correcto. Escribe los 10 números o el número con + y el código del país.");
+  await q(`update students set phone = $2 where id = $1`, [user.id, phone]);
+  return { ok: true, phone };
+});
 on("PUT", "progress", "student", ({ q, user, body }) => saveProgress(q, user, body));
+on("POST", "exam/open", "student", ({ q, user, body }) => openExam(q, user, body));
 on("POST", "grade", "student", ({ q, tx, user, body }) => gradeSubmission(q, tx, user, body));
 on("GET", "insights", "student", ({ q, user }) => insights(q, user.id));
 on("GET", "practice/:id", "student", ({ q, user, params }) => practiceDetail(q, user.id, int(params.id)));
@@ -494,6 +599,12 @@ on("GET", "teacher/status", null, ({ q }) => teacherStatus(q));
 on("POST", "teacher/setup", null, ({ q, body, res }) => teacherSetup(q, body, res));
 on("POST", "teacher/login", null, ({ q, body, res }) => teacherLogin(q, body, res));
 on("GET", "teacher/overview", "teacher", ({ q, user, query }) => teacherOverview(q, user, int(query.get("class"))));
+// A sample of a review or unit exam as a brand-new student would get it, for the teacher to look at.
+on("POST", "teacher/sample-exam", "teacher", async ({ body }) => {
+  const Lsn = lessonOf(body.lessonId);
+  if (!L.examKind(Lsn)) fail(400, "Esta lección no tiene examen.");
+  return { items: L.buildExam(Lsn, [], [], {}, `sample:${Date.now()}`) };
+});
 on("POST", "teacher/classes", "teacher", async ({ q, user, body }) => {
   const name = cleanName(body.name);
   if (!name) fail(400, "Escriba un nombre para la clase.");
@@ -504,6 +615,19 @@ on("PATCH", "teacher/classes/:id", "teacher", async ({ q, user, params, body }) 
   const name = body.name != null ? cleanName(body.name) || cls.name : cls.name;
   const archived = body.archived != null ? !!body.archived : cls.archived;
   await q(`update classes set name = $2, archived = $3 where id = $1`, [cls.id, name, archived]);
+  return { ok: true };
+});
+on("POST", "teacher/announcements", "teacher", async ({ q, user, body }) => {
+  const cls = await ownClass(q, user.id, int(body.classId));
+  const text = String(body.body ?? "").replace(/\r/g, "").trim().slice(0, 1000);
+  if (!text) fail(400, "Escriba el mensaje.");
+  const { rows } = await q(`insert into announcements (class_id, body) values ($1, $2) returning id, body, created_at`, [cls.id, text]);
+  return rows[0];
+});
+on("DELETE", "teacher/announcements/:id", "teacher", async ({ q, user, params }) => {
+  const { rowCount } = await q(
+    `delete from announcements a using classes c where a.id = $1 and c.id = a.class_id and c.teacher_id = $2`, [int(params.id), user.id]);
+  if (!rowCount) fail(404, "Aviso no encontrado.");
   return { ok: true };
 });
 on("PUT", "teacher/homework", "teacher", async ({ q, tx, user, body }) => {
@@ -517,7 +641,16 @@ on("PUT", "teacher/homework", "teacher", async ({ q, tx, user, body }) => {
   return { ok: true };
 });
 on("GET", "teacher/students/:id", "teacher", ({ q, user, params }) => studentDetail(q, user.id, int(params.id)));
+on("GET", "teacher/students/:id/exams", "teacher", ({ q, user, params }) => studentExams(q, user.id, int(params.id)));
 on("POST", "teacher/students/:id/practice", "teacher", ({ q, user, params, body }) => teacherPractice(q, user.id, int(params.id), body));
+on("PUT", "teacher/students/:id/phone", "teacher", async ({ q, user, params, body }) => {
+  const st = await ownStudent(q, user.id, int(params.id));
+  const raw = String(body.phone ?? "").trim();
+  const phone = raw ? normPhone(raw) : null;
+  if (raw && !phone) fail(400, "Número no válido. Escriba 10 números o el número con + y el código del país.");
+  await q(`update students set phone = $2 where id = $1`, [st.id, phone]);
+  return { ok: true, phone: phone || "" };
+});
 on("POST", "teacher/students/:id/pin", "teacher", async ({ q, user, params, body }) => {
   const st = await ownStudent(q, user.id, int(params.id));
   const pin = String(body.pin || "").trim();
@@ -591,4 +724,4 @@ async function handle(req, res) {
   }
 }
 
-module.exports = { handle, _test: { nameKey, cleanName } };
+module.exports = { handle, _test: { nameKey, cleanName, normPhone } };

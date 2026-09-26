@@ -36,7 +36,8 @@
     if (kind === "choose") return { ok: Number(answer) === it.answer, key, kind };
     const got = norm(answer, name);
     if (!got) return { ok: false, key, kind };
-    if (kind === "order") return { ok: got === norm(it.answer, name), key, kind };
+    // an order item may list other correct sentences the same tiles can make
+    if (kind === "order") return { ok: [it.answer, ...(it.answers || [])].some((x) => got === norm(x, name)), key, kind };
     const opts = kind === "translate"
       ? (it.answers || [])
       : (it.answers && it.answers.length ? it.answers : [it.answer]);

@@ -1,20 +1,36 @@
-# Puente — libro de trabajo
+# Puente — inglés paso a paso
 
-Sequential English textbook for Spanish speakers.
+English from zero for Spanish speakers, built for a church class. 8 units, ~170 short lessons,
+one concept per lesson, every explanation in Spanish. Optional job-English lessons (construction,
+cleaning, restaurant, landscaping, childcare/home care, warehouse).
 
-Each lesson: grammar + heavy written practice + a 12-question exam.
-The next lesson stays locked until the exam is 80% or better. Retakes allowed.
+## Curriculum
 
-1. El sustantivo
-2. El plural y the
-3. Pronombres de sujeto
-4. El verbo BE
-5. El adjetivo
-6. This / that / these / those
-7. Presente: I you we they
-8. La -s de he/she/it
-9. Don’t / doesn’t / do / does
-10. Can
+- `curriculum/map.js` — the plan: every lesson in order with its grammar, vocabulary,
+  communication and reading/writing targets, prerequisites, reviews and unit exams. The Teacher
+  tab ("Mapa del curso") shows this.
+- `curriculum/lessons/<id>.js` — one file per lesson (rules in `curriculum/AUTHORING.md`).
+- `curriculum/how.js` — the student's "Cómo funciona Puente" page.
+- `node scripts/build-content.js --check <id…|all>` checks lessons (answer keys, Spanish
+  explanations, words not taught yet); `node scripts/build-content.js` writes `content.js`.
+  Never edit `content.js` by hand.
+
+## Exams, reviews and remediation
+
+- Each lesson ends with a 12-question exam drawn from its bank (18–24 questions). 80% opens the
+  next lesson. Below 80% the student sees every missed question corrected (their answer, the right
+  one, why) and gets a fresh exam that avoids the last draw.
+- Review lessons (20 questions) mix recent lessons, older ones, and the student's concepts
+  "en seguimiento"; unit exams (25) cover the unit plus tracked concepts from earlier units.
+- A concept goes into tracking when missed and leaves after 4 right in a row with 80% mastery.
+- Every exam instance is stored (`exams` table) so it can be resumed and the teacher can see answers.
+
+## WhatsApp
+
+Students register with their WhatsApp number. The teacher desk writes a personalized message
+(announcement, homework reminder, encouragement, "we miss you") and opens WhatsApp per student
+(`wa.me` links, sent from the teacher's phone); it can also copy all numbers for a broadcast list
+and post the message as an in-app announcement.
 
 ## How it works
 
@@ -22,7 +38,7 @@ The pages are plain HTML/CSS/JS (`index.html`, `styles.css`, `content.js`, `app.
 `classroom.js`). One Vercel serverless function (`api/index.js`) stores everything in
 Postgres (Neon, attached through the Vercel dashboard).
 
-- **Students** join a class with the class code, their name and a PIN (stored hashed;
+- **Students** join a class with the class code, their full name, WhatsApp number and a PIN (stored hashed;
   8 wrong tries lock the account for 10 minutes; the teacher can reset it).
 - **Grading happens on the server** (`grading.js` is shared with the browser, which only
   gives instant feedback). Every answer is stored with its grammar topic and question type.

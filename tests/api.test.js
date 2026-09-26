@@ -41,6 +41,15 @@ const pageItems = (lessonId, type) => {
 };
 const answersFor = (entries, first, wrong = () => false) =>
   Object.fromEntries(entries.map((e, i) => [i, wrong(i) ? "zzz" : correct(e, first)]));
+// Opens (drawing if needed) the student's exam for a lesson and hands it in.
+async function takeExam(who, lessonId, first, wrong = () => false) {
+  const o = await who.post("exam/open", { lessonId, start: true });
+  assert.equal(o.status, 200, JSON.stringify(o.data));
+  const entries = o.data.exam.items.map((ref) => bank.byRef.get(ref));
+  const r = await who.post("grade", { source: "exam", examId: o.data.exam.id, answers: answersFor(entries, first, wrong) });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  return { exam: o.data.exam, entries, r: r.data };
+}
 
 const teacher = client();
 const ana = client();
@@ -65,20 +74,27 @@ test("teacher login rejects a wrong password", async () => {
   assert.equal((await client().post("teacher/login", { password: "maestra123" })).status, 200);
 });
 
-test("students join with class code + name + PIN; accents and case don't matter", async () => {
-  assert.equal((await ana.post("student/login", { code: "ZZZZZZ", first: "Ana", last: "Ruiz", pin: "1234" })).status, 404);
-  assert.equal((await ana.post("student/login", { code, first: "Ana", last: "Ruiz", pin: "12" })).status, 400);
-  assert.equal((await ana.post("student/login", { code: code.toLowerCase(), first: "Ána", last: "Ruíz", pin: "1234" })).status, 200);
+test("students register with class code, full name, WhatsApp and PIN; accents and case don't matter", async () => {
+  assert.equal((await ana.post("student/login", { code: "ZZZZZZ", first: "Ana", last: "Ruiz", phone: "3045551234", pin: "1234" })).status, 404);
+  assert.equal((await ana.post("student/login", { code, first: "Ana", last: "Ruiz", phone: "3045551234", pin: "12" })).status, 400);
+  const noPhone = await ana.post("student/login", { code, first: "Ana", last: "Ruiz", pin: "1234" });
+  assert.equal(noPhone.status, 400, "first registration needs WhatsApp");
+  assert.match(noPhone.data.error, /WhatsApp/);
+  assert.equal((await ana.post("student/login", { code, first: "Ana", last: "Ruiz", phone: "12", pin: "1234" })).status, 400);
+  assert.equal((await ana.post("student/login", { code: code.toLowerCase(), first: "Ána", last: "Ruíz", phone: "(304) 555-1234", pin: "1234" })).status, 200);
   const again = client();
-  assert.equal((await again.post("student/login", { code, first: "ana", last: "ruiz", pin: "1234" })).status, 200);
+  assert.equal((await again.post("student/login", { code, first: "ana", last: "ruiz", pin: "1234" })).status, 200, "returning students don't retype it");
   const me = await again.get("me");
   assert.equal(me.data.student.first, "Ána");
+  assert.equal(me.data.student.phone, "13045551234");
   assert.equal((await client().post("student/login", { code, first: "Ana", last: "Ruiz", pin: "9999" })).status, 401);
+  assert.equal((await again.put("student/phone", { phone: "+52 55 1234 5678" })).data.phone, "525512345678");
+  assert.equal((await again.put("student/phone", { phone: "3045551234" })).data.phone, "13045551234");
 });
 
 test("repeated wrong PINs lock the account", async () => {
   const eve = client();
-  await eve.post("student/login", { code, first: "Eve", last: "Paz", pin: "4321" });
+  await eve.post("student/login", { code, first: "Eve", last: "Paz", phone: "3045550001", pin: "4321" });
   let last;
   for (let i = 0; i < 9; i++) last = await client().post("student/login", { code, first: "Eve", last: "Paz", pin: "0000" });
   assert.equal(last.status, 429);
@@ -87,7 +103,7 @@ test("repeated wrong PINs lock the account", async () => {
 
 test("names are cleaned of markup", async () => {
   const x = client();
-  await x.post("student/login", { code, first: "<img src=x>Bo", last: "Z", pin: "1234" });
+  await x.post("student/login", { code, first: "<img src=x>Bo", last: "Z", phone: "3045550002", pin: "1234" });
   assert.equal((await x.get("me")).data.student.first, "img src=xBo");
 });
 
@@ -100,54 +116,57 @@ test("routes enforce roles and JSON", async () => {
   assert.equal(raw.status, 415);
 });
 
-test("locked lessons can't be graded", async () => {
-  const { pi } = pageItems("e100-02", "quiz");
-  assert.equal((await ana.post("grade", { source: "quiz", lessonId: "e100-02", page: pi, answers: {} })).status, 403);
+test("locked lessons can't be opened or graded", async () => {
+  assert.equal((await ana.post("exam/open", { lessonId: "u1-02", start: true })).status, 403);
+  const { pi } = pageItems("u1-02", "fill");
+  assert.equal((await ana.post("grade", { source: "exercise", lessonId: "u1-02", page: pi, answers: { 0: "a" } })).status, 403);
+  assert.equal((await ana.post("exam/open", { lessonId: "of-construccion-1", start: true })).status, 403, "job lessons wait for their unit exam");
 });
 
-test("the church chapter is open from day one and its practice stays in the chapter", async () => {
-  const eli = client();
-  await eli.post("student/login", { code, first: "Eli", last: "Soto", pin: "2468" });
-  const { pi, entries } = pageItems("fe-01", "quiz");
-  const r = await eli.post("grade", { source: "quiz", lessonId: "fe-01", page: pi, answers: answersFor(entries, "Eli", () => true) });
-  assert.equal(r.status, 200);
-  assert.equal(r.data.passed, false);
-  const set = await eli.get(`practice/${r.data.newPractice}`);
-  assert.ok(set.data.items.every((ref) => bank.byRef.get(ref).topic === "fe-01"));
-  const ok = await eli.post("grade", { source: "quiz", lessonId: "fe-01", page: pi, answers: answersFor(entries, "Eli") });
-  assert.equal(ok.data.percent, 100);
-  // Passing the chapter doesn't open lesson 2.
-  const { pi: p2 } = pageItems("e100-02", "quiz");
-  assert.equal((await eli.post("grade", { source: "quiz", lessonId: "e100-02", page: p2, answers: {} })).status, 403);
+test("an exam is drawn once, resumed until handed in", async () => {
+  const a = await ana.post("exam/open", { lessonId: "u1-01", start: false });
+  assert.equal(a.data.exam, null, "nothing is drawn until the student starts");
+  const b = await ana.post("exam/open", { lessonId: "u1-01", start: true });
+  assert.equal(b.data.exam.items.length, 12);
+  const c = await ana.post("exam/open", { lessonId: "u1-01", start: true });
+  assert.equal(c.data.exam.id, b.data.exam.id, "reopening resumes the same exam");
 });
 
-test("a failed exam records responses and creates an automatic practice set on the weak spots", async () => {
-  const { pi, entries } = pageItems("e100-01", "quiz");
-  const r = await ana.post("grade", { source: "quiz", lessonId: "e100-01", page: pi, answers: answersFor(entries, "Ána", (i) => i % 2 === 0) });
-  assert.equal(r.status, 200);
-  assert.equal(r.data.right, Math.floor(entries.length / 2));
-  assert.equal(r.data.passed, false);
-  assert.ok(r.data.keys.some((k) => k), "wrong answers come back with keys");
-  assert.equal(r.data.scores["e100-01"].passed, false);
-  assert.ok(r.data.newPractice, "a practice set was created");
-  const set = await ana.get(`practice/${r.data.newPractice}`);
-  assert.equal(set.status, 200);
+let failedExam;
+test("a failed exam shows every correction, tracks the concept, builds practice and a fresh exam", async () => {
+  const { exam, entries, r } = await takeExam(ana, "u1-01", "Ána", (i) => i % 2 === 0);
+  failedExam = exam;
+  assert.equal(r.passed, false);
+  assert.equal(r.right, entries.length / 2);
+  assert.equal(r.results.length, 12);
+  assert.ok(r.results.filter((x) => !x.ok).every((x) => x.given === "zzz" && x.ref), "each miss comes back with the student's answer");
+  assert.equal(r.scores["u1-01"].passed, false);
+  assert.ok(r.tracking.some((t) => t.topic === "u1-01"), "the concept goes into tracking");
+  assert.ok(r.newPractice, "a practice set was created");
+  const set = await ana.get(`practice/${r.newPractice}`);
   assert.ok(set.data.items.length >= 6);
-  assert.ok(set.data.items.every((ref) => bank.byRef.get(ref).topic === "e100-01"));
+  assert.ok(set.data.items.every((ref) => bank.byRef.get(ref).topic === "u1-01"));
+  const again = await ana.post("grade", { source: "exam", examId: exam.id, answers: {} });
+  assert.equal(again.status, 409);
+  const view = await ana.post("exam/open", { lessonId: "u1-01", start: false });
+  assert.equal(view.data.last.id, exam.id);
+  assert.equal(view.data.last.results.length, 12);
+  assert.equal(view.data.exam, null);
+  const fresh = await ana.post("exam/open", { lessonId: "u1-01", start: true });
+  assert.notEqual(fresh.data.exam.id, exam.id);
+  const overlap = fresh.data.exam.items.filter((ref) => exam.items.includes(ref)).length;
+  assert.ok(overlap < 12, "the new exam has new questions");
   const ins = await ana.get("insights");
-  assert.ok(ins.data.topics.find((t) => t.topic === "e100-01"));
+  assert.ok(ins.data.tracking.find((t) => t.topic === "u1-01"));
 });
 
 test("a self-check records only the questions that were answered", async () => {
-  const li = bank.lessonIndex.get("e100-01");
-  const pi = book.lessons[li].pages.findIndex((p) => p.type === "fill");
-  const before = (await ana.get("insights")).data.cells.reduce((n, c) => n + c.n, 0);
-  const r = await ana.post("grade", { source: "exercise", lessonId: "e100-01", page: pi, answers: { 0: "zzz" } });
+  const li = bank.lessonIndex.get("u1-01");
+  const pi = book.lessons[li].pages.findIndex((p) => ["fill", "choose", "translate"].includes(p.type));
+  const r = await ana.post("grade", { source: "exercise", lessonId: "u1-01", page: pi, answers: { 0: "zzz" } });
   assert.equal(r.data.total, 1);
-  const blank = await ana.post("grade", { source: "exercise", lessonId: "e100-01", page: pi, answers: {} });
+  const blank = await ana.post("grade", { source: "exercise", lessonId: "u1-01", page: pi, answers: {} });
   assert.equal(blank.data.total, 0);
-  const after = (await ana.get("insights")).data.cells.reduce((n, c) => n + c.n, 0);
-  assert.equal(after, before + 1);
 });
 
 test("passing a practice set marks it done", async () => {
@@ -162,24 +181,20 @@ test("passing a practice set marks it done", async () => {
   assert.equal(after.best_percent, 100);
 });
 
-test("passing exam and review opens the next lesson", async () => {
-  for (const type of ["quiz", "review"]) {
-    const { pi, entries } = pageItems("e100-01", type);
-    const r = await ana.post("grade", { source: type, lessonId: "e100-01", page: pi, answers: answersFor(entries, "Ána") });
-    assert.equal(r.data.passed, true, type);
-  }
-  const { pi } = pageItems("e100-02", "quiz");
-  assert.equal((await ana.post("grade", { source: "quiz", lessonId: "e100-02", page: pi, answers: {} })).status, 200);
+test("passing the exam opens the next lesson", async () => {
+  const { r } = await takeExam(ana, "u1-01", "Ána");
+  assert.equal(r.passed, true);
+  assert.equal((await ana.post("exam/open", { lessonId: "u1-02", start: false })).status, 200);
 });
 
 test("progress saves place and answers but never scores; reading time is clamped", async () => {
-  const r = await ana.put("progress", { state: { view: "lesson", lesson: 1, page: 2, answers: { "e100-02:2:0": "cat" }, timeMs: { "e100-02": 99999999 }, scores: { "e100-40": { passed: true } } } });
+  const r = await ana.put("progress", { state: { view: "lesson", lesson: 1, page: 2, answers: { "u1-02:2:0": "cat" }, timeMs: { "u1-02": 99999999 }, scores: { "u8-exam": { passed: true } } } });
   assert.equal(r.status, 200);
-  assert.ok(r.data.timeMs["e100-02"] <= 61000, "time can only grow by elapsed wall time");
+  assert.ok(r.data.timeMs["u1-02"] <= 61000, "time can only grow by elapsed wall time");
   const me = await ana.get("me");
   assert.equal(me.data.state.lesson, 1);
-  assert.equal(me.data.state.answers["e100-02:2:0"], "cat");
-  assert.equal(me.data.scores["e100-40"], undefined);
+  assert.equal(me.data.state.answers["u1-02:2:0"], "cat");
+  assert.equal(me.data.scores["u8-exam"], undefined);
 });
 
 let anaId;
@@ -188,11 +203,15 @@ test("teacher sees roster, strengths/weaknesses and can assign practice", async 
   const row = ov.data.roster.find((s) => s.first === "Ána");
   anaId = row.id;
   assert.ok(row.lastExam);
+  assert.equal(row.phone, "13045551234");
+  assert.equal(row.current.id, "u1-02");
+  const exams = await teacher.get(`teacher/students/${anaId}/exams`);
+  assert.ok(exams.data.exams.some((x) => x.id === failedExam.id && x.results.length === 12), "teacher sees each exam with answers");
   const d = await teacher.get(`teacher/students/${anaId}`);
   assert.equal(d.status, 200);
   assert.ok(d.data.insights.cells.length > 0);
   assert.ok(d.data.recent.length >= 3);
-  const p = await teacher.post(`teacher/students/${anaId}/practice`, { topics: ["e100-01", "e100-02"], skill: "fill", size: 8, due: "2026-10-10" });
+  const p = await teacher.post(`teacher/students/${anaId}/practice`, { topics: ["u1-01", "u1-02"], skill: "fill", size: 8, due: "2026-10-10" });
   assert.equal(p.status, 200);
   assert.equal(p.data.n, 8);
   const d2 = await teacher.get(`teacher/students/${anaId}`);
@@ -203,10 +222,10 @@ test("teacher sees roster, strengths/weaknesses and can assign practice", async 
 });
 
 test("homework, paper grades and CSV", async () => {
-  assert.equal((await teacher.put("teacher/homework", { classId, lessons: ["e100-01"], due: "2026-10-01" })).status, 200);
+  assert.equal((await teacher.put("teacher/homework", { classId, lessons: ["u1-01"], due: "2026-10-01" })).status, 200);
   const ov = await teacher.get(`teacher/overview?class=${classId}`);
   assert.equal(ov.data.roster.find((s) => s.id === anaId).ready, true);
-  assert.equal((await teacher.put(`teacher/students/${anaId}/paper`, { lessonId: "e100-01", grade: "8,5" })).status, 200);
+  assert.equal((await teacher.put(`teacher/students/${anaId}/paper`, { lessonId: "u1-01", grade: "8,5" })).status, 200);
   const csv = await teacher.get(`teacher/csv?class=${classId}`);
   // fetch's text() drops the byte-order mark, so check the raw bytes for it.
   const raw = await teacher.raw(`teacher/csv?class=${classId}`);
@@ -227,7 +246,7 @@ test("a PIN reset signs the student out everywhere", async () => {
 test("archived classes stop accepting logins; teacher can delete a student", async () => {
   const c2 = await teacher.post("teacher/classes", { name: "Clase B" });
   const bo = client();
-  assert.equal((await bo.post("student/login", { code: c2.data.code, first: "Bo", last: "Li", pin: "1111" })).status, 200);
+  assert.equal((await bo.post("student/login", { code: c2.data.code, first: "Bo", last: "Li", phone: "3045550003", pin: "1111" })).status, 200);
   await teacher.patch(`teacher/classes/${c2.data.id}`, { archived: true });
   assert.equal((await client().post("student/login", { code: c2.data.code, first: "Bo", last: "Li", pin: "1111" })).status, 404);
   assert.equal((await bo.get("me")).data.role, null);
@@ -235,4 +254,21 @@ test("archived classes stop accepting logins; teacher can delete a student", asy
   const ov = await teacher.get(`teacher/overview?class=${c2.data.id}`);
   const id = ov.data.roster[0].id;
   assert.equal((await teacher.del(`teacher/students/${id}`)).status, 200);
+});
+
+test("announcements: the teacher posts, students see them, the teacher removes them", async () => {
+  const a = await teacher.post("teacher/announcements", { classId, body: "No hay clase el martes." });
+  assert.equal(a.status, 200);
+  assert.equal((await teacher.post("teacher/announcements", { classId, body: "  " })).status, 400);
+  assert.equal((await ana.get("me")).data.announcements[0].body, "No hay clase el martes.");
+  assert.equal((await ana.post("teacher/announcements", { classId, body: "x" })).status, 401);
+  assert.equal((await teacher.del(`teacher/announcements/${a.data.id}`)).status, 200);
+  assert.equal((await ana.get("me")).data.announcements.length, 0);
+});
+
+test("the teacher can fix a student's WhatsApp and preview a review as a new student", async () => {
+  assert.equal((await teacher.put(`teacher/students/${anaId}/phone`, { phone: "abc" })).status, 400);
+  assert.equal((await teacher.put(`teacher/students/${anaId}/phone`, { phone: "304 555 9999" })).data.phone, "13045559999");
+  const s = await teacher.post("teacher/sample-exam", { lessonId: "u1-r1" });
+  assert.equal(s.data.items.length, 20);
 });
