@@ -128,3 +128,20 @@ test("practice prefers recently missed questions and skips ones just answered ri
   assert.equal(new Set(refs).size, refs.length);
   assert.ok(refs.every((ref) => bank.byRef.get(ref).topic === topic));
 });
+
+test("WhatsApp numbers: Panama and US numbers need no country code, and neither is forced on the other", () => {
+  const { normPhone } = require("../api/_lib/app.js")._test;
+  assert.equal(normPhone("6123-4567"), "50761234567", "Panama cell");
+  assert.equal(normPhone("6123 4567"), "50761234567");
+  assert.equal(normPhone("223-4567"), "5072234567", "Panama landline");
+  assert.equal(normPhone("+507 6123 4567"), "50761234567");
+  assert.equal(normPhone("507 6123 4567"), "50761234567", "Panama with 507 but no +");
+  assert.equal(normPhone("00507 6123 4567"), "50761234567");
+  assert.equal(normPhone("(304) 555-1234"), "13045551234", "US");
+  assert.equal(normPhone("1 304 555 1234"), "13045551234");
+  assert.equal(normPhone("+1 304 555 1234"), "13045551234");
+  assert.equal(normPhone("+52 55 1234 5678"), "525512345678", "anything else with +");
+  assert.equal(normPhone("12"), null);
+  assert.equal(normPhone("612 3456"), "5076123456");
+  assert.equal(normPhone("61234"), null);
+});

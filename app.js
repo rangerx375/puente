@@ -362,7 +362,7 @@ function viewLogin() {
         <input id="last" type="text" autocomplete="family-name" maxlength="40">
       </label>
       <label class="field">Número de WhatsApp
-        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="304 555 1234">
+        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="6123 4567">
         <small>Obligatorio la primera vez. El profesor lo usa para mandarte avisos y recordatorios. Si no es de EE. UU., empieza con + y el código del país.</small>
       </label>
       <label class="field">Clave (al menos 4 caracteres)
@@ -572,7 +572,7 @@ function practicePanel() {
   const phone = !state.phone
     ? `<div class="rule-box"><strong>Falta tu WhatsApp</strong>
         <p class="tiny">El profesor manda avisos por WhatsApp. Escribe tu número:</p>
-        <div class="row wrap"><input id="my-phone" type="tel" inputmode="tel" maxlength="20" placeholder="304 555 1234" aria-label="Número de WhatsApp">
+        <div class="row wrap"><input id="my-phone" type="tel" inputmode="tel" maxlength="20" placeholder="6123 4567" aria-label="Número de WhatsApp">
         <button class="btn secondary" id="save-phone">Guardar</button></div><p class="tiny" id="phone-msg" role="status"></p></div>`
     : "";
   const cards = open.map((p) => `

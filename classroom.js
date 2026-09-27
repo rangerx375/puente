@@ -27,7 +27,12 @@
   }
   const when = (d) => (d ? new Date(d).toLocaleDateString("es", { day: "numeric", month: "short" }) : "—");
   const refresh = () => { if (typeof render === "function") render(); };
-  const phoneShow = (p) => (p ? (p.length === 11 && p[0] === "1" ? `(${p.slice(1, 4)}) ${p.slice(4, 7)}-${p.slice(7)}` : "+" + p) : "");
+  const phoneShow = (p) => {
+    if (!p) return "";
+    if (p.length === 11 && p[0] === "1") return `+1 (${p.slice(1, 4)}) ${p.slice(4, 7)}-${p.slice(7)}`;
+    if (p.startsWith("507") && (p.length === 10 || p.length === 11)) return `+507 ${p.slice(3, -4)}-${p.slice(-4)}`;
+    return "+" + p;
+  };
 
   async function run(fn, okMsg) {
     if (t.busy) return;
@@ -436,7 +441,7 @@
       ${msg}
       <div class="row wrap">
         <label class="field">WhatsApp
-          <input id="stu-phone" type="tel" value="${esc(st.phone ? "+" + st.phone : "")}" placeholder="304 555 1234" maxlength="20">
+          <input id="stu-phone" type="tel" value="${esc(st.phone ? "+" + st.phone : "")}" placeholder="6123 4567" maxlength="20">
         </label>
         <button class="btn secondary" id="save-phone">Guardar número</button>
         ${st.phone ? `<a class="btn" href="https://wa.me/${esc(st.phone)}" target="_blank" rel="noopener">Abrir WhatsApp</a>` : ""}

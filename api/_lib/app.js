@@ -49,14 +49,17 @@ const newCode = () => Array.from(crypto.randomBytes(6), (b) => CODE_CHARS[b % CO
 const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 
 // WhatsApp numbers are stored as digits with the country code (wa.me wants exactly that).
-// A plain 10-digit number is a US number; anything written with + or 00 keeps its own country code.
+// The class is in Panama, so a plain 8-digit (cell) or 7-digit (landline) number gets 507;
+// a plain 10-digit number is a US number; anything written with + or 00, or already carrying
+// 507 or 1 in front, keeps its own country code. Nobody has to type a country code.
 function normPhone(s) {
   const raw = String(s ?? "").trim();
   if (!raw) return null;
   let d = raw.replace(/\D/g, "");
   if (/^\+|^00/.test(raw)) d = d.replace(/^00/, "");
+  else if (d.length === 7 || d.length === 8) d = "507" + d;
   else if (d.length === 10) d = "1" + d;
-  if (d.length < 11 || d.length > 15) return null;
+  if (d.length < 10 || d.length > 15) return null;
   return d;
 }
 
@@ -117,7 +120,7 @@ async function studentLogin(q, body, res) {
   if (!code) fail(400, "Escribe el código de la clase.");
   if (!first || !last) fail(400, "Escribe tu nombre y tus apellidos.");
   if (pin.length < 4 || pin.length > 40) fail(400, "La clave necesita al menos 4 caracteres.");
-  if (phoneRaw && !phone) fail(400, "El número de WhatsApp no parece correcto. Escribe los 10 números (por ejemplo 304 555 1234) o el número con + y el código del país.");
+  if (phoneRaw && !phone) fail(400, "El número de WhatsApp no parece correcto. Escribe tu número como lo marcas en Panamá (por ejemplo 6123 4567).");
   const { rows: cls } = await q(`select id from classes where code = $1 and not archived`, [code]);
   if (!cls[0]) fail(404, "No existe una clase con ese código.");
   const key = nameKey(first, last);
@@ -585,7 +588,7 @@ on("GET", "me", null, async ({ q, req }) => {
 on("POST", "student/login", null, ({ q, body, res }) => studentLogin(q, body, res));
 on("PUT", "student/phone", "student", async ({ q, user, body }) => {
   const phone = normPhone(body.phone);
-  if (!phone) fail(400, "El número de WhatsApp no parece correcto. Escribe los 10 números o el número con + y el código del país.");
+  if (!phone) fail(400, "El número de WhatsApp no parece correcto. Escribe tu número como lo marcas en Panamá (por ejemplo 6123 4567).");
   await q(`update students set phone = $2 where id = $1`, [user.id, phone]);
   return { ok: true, phone };
 });
@@ -647,7 +650,7 @@ on("PUT", "teacher/students/:id/phone", "teacher", async ({ q, user, params, bod
   const st = await ownStudent(q, user.id, int(params.id));
   const raw = String(body.phone ?? "").trim();
   const phone = raw ? normPhone(raw) : null;
-  if (raw && !phone) fail(400, "Número no válido. Escriba 10 números o el número con + y el código del país.");
+  if (raw && !phone) fail(400, "Número no válido. Escriba el número de Panamá (6123 4567), uno de EE. UU. de 10 números, o cualquier otro con + y el código del país.");
   await q(`update students set phone = $2 where id = $1`, [st.id, phone]);
   return { ok: true, phone: phone || "" };
 });
