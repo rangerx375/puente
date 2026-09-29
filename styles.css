@@ -470,17 +470,8 @@ input.paper { width: 70px; padding: 6px 8px; border: 1px solid var(--line); bord
 @media (min-width: 760px) {
   .app.wide { max-width: 1100px; }
   .assign-grid { grid-template-columns: 1fr 1fr; }
-}
   body { background: #e7dfd0; }
-  .app {
-    max-width: 760px;
-    margin: 24px auto;
-    background: transparent;
-    border: 0;
-    min-height: calc(100% - 48px);
-    padding: 0 12px 36px;
-    box-shadow: none;
-  }
+  .app { margin: 24px auto; min-height: calc(100% - 48px); padding: 0 24px 36px; }
 }
 
 /* Sign-in tabs */
@@ -663,3 +654,53 @@ details.bonus-block > summary small { color: var(--ink-soft); margin-left: 6px; 
 .lex .vex small { display: block; color: var(--ink-soft); }
 .roleplay { margin: 14px 0; }
 .roleplay ul { margin: 4px 0 0; }
+
+/* ---------- Screen sizes ----------
+   Phones: one column, tight padding, nothing wider than the screen.
+   Computers: the page fills the window, with bigger type and lists and exercises in columns. */
+html { -webkit-text-size-adjust: 100%; }
+.page-sheet, .card { overflow-wrap: break-word; }
+img, svg, video { max-width: 100%; }
+
+@media (max-width: 599px) {
+  body { font-size: 16px; }
+  .app { padding: 10px 10px 28px; }
+  h1 { font-size: 28px; }
+  h2 { font-size: 22px; }
+  .page-sheet { padding: 18px 14px 22px; min-height: 0; }
+  .phrase { font-size: 26px; }
+  table.lex { font-size: 14px; }
+  table.lex th, table.lex td { padding: 7px 4px; }
+  .toc-row strong { font-size: 18px; }
+  .toc-num { width: 32px; font-size: 20px; }
+  .bubble { max-width: 94%; }
+  .pager .btn { padding-left: 8px; padding-right: 8px; }
+  .gradebook { font-size: 13px; }
+}
+
+@media (min-width: 1000px) {
+  body { font-size: 18px; }
+  .app, .app.wide { max-width: min(1440px, 94vw); padding: 0 32px 48px; }
+  h1 { font-size: 42px; }
+  h2 { font-size: 30px; }
+  .page-sheet { padding: 40px 56px 48px; min-height: calc(100vh - 170px); }
+  .phrase { font-size: 40px; }
+  .lede, .rule-box { font-size: 19px; }
+  table.lex { font-size: 17px; }
+  table.lex th, table.lex td { padding: 10px 12px; }
+  .drill { font-size: 22px; }
+  /* contents: lessons side by side */
+  .toc { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+  .toc > li { display: flex; }
+  .toc-row { height: 100%; }
+  /* exercises and examples in two columns */
+  #ex.stack { grid-template-columns: 1fr 1fr; column-gap: 40px; }
+  #ex.stack > .btn, #ex.stack > button { grid-column: 1 / -1; justify-self: start; }
+  .examples { columns: 2; column-gap: 40px; }
+  .examples p { break-inside: avoid; margin-top: 0; }
+  .dialogue { max-width: 1000px; }
+  .bubble { max-width: 70%; }
+  .mistakes { grid-template-columns: 1fr 1fr; column-gap: 32px; }
+  .pager { max-width: 640px; margin-left: auto; margin-right: auto; }
+  .practice-panel, .card { padding: 22px 26px; }
+}
