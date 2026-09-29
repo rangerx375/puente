@@ -651,3 +651,15 @@ details.level-block[open] > summary h2::after { content: " ▾"; }
   .page-sheet { box-shadow: none; border: 0; }
   .gradebook.curriculum td { font-size: 10px; }
 }
+
+/* Capítulos extra */
+details.bonus-block { margin: 10px 0; border-left: 3px solid var(--line); padding-left: 12px; }
+details.bonus-block > summary { cursor: pointer; padding: 6px 0; }
+details.bonus-block > summary strong { font-family: var(--serif); font-size: 18px; }
+details.bonus-block > summary em { color: var(--muted); font-style: italic; margin-left: 6px; }
+details.bonus-block > summary small { color: var(--ink-soft); margin-left: 6px; }
+.lex .pos { color: var(--muted); font-style: italic; }
+.lex .vex { margin-top: 4px; font-size: 14px; }
+.lex .vex small { display: block; color: var(--ink-soft); }
+.roleplay { margin: 14px 0; }
+.roleplay ul { margin: 4px 0 0; }

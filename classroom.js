@@ -386,8 +386,9 @@
         <p><b>Examen de unidad.</b> 25 preguntas de toda la unidad, más conceptos en seguimiento de unidades anteriores.</p>
       </div>
       <p class="tiny"><button class="btn secondary" id="print-map">Imprimir el mapa</button> <button class="btn secondary" data-view="teacher">Volver al escritorio</button></p>
-      ${units().filter((u) => u.id !== "oficios").map((u) => unitBlock(u, core.filter((L) => L.unit === u.id))).join("")}
-      ${unitBlock(units().find((u) => u.id === "oficios") || { title: "Inglés para el trabajo" }, lessons().filter((L) => L.elective))}
+      ${units().filter((u) => u.id !== "oficios" && u.id !== "extra").map((u) => unitBlock(u, core.filter((L) => L.unit === u.id))).join("")}
+      ${unitBlock(units().find((u) => u.id === "oficios") || { title: "Inglés para el trabajo" }, lessons().filter((L) => L.elective && !L.extra))}
+      ${lessons().some((L) => L.extra) ? unitBlock(units().find((u) => u.id === "extra"), lessons().filter((L) => L.extra)) : ""}
       <button class="btn secondary" data-view="teacher">Volver al escritorio</button>`;
   }
 

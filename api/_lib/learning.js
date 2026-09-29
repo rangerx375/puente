@@ -44,6 +44,7 @@ function openLessonCount(scores) {
 function isOpen(scores, id, openCount = openLessonCount(scores)) {
   const L = lessonById.get(id);
   if (!L) return false;
+  if (L.extra) return true;  // bonus chapters: always open, for everyone
   if (L.elective) return lessonCleared(scores, L.opensAfter);
   return coreIndex.get(id) < openCount;
 }

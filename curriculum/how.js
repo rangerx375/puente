@@ -59,6 +59,13 @@ module.exports = [
     ]
   },
   {
+    h: "Capítulos extra (abiertos para todos)",
+    p: [
+      "Al final del índice también hay 16 capítulos extra con inglés para trabajar y vivir en El Valle de Antón: construcción, jardinería, turismo, universidad, hotel, supermercado, cajero, mesero, salón, el mercado y más.",
+      "Están abiertos siempre, desde el primer día. Entra en el que te sirva, en el orden que quieras. Son más largos y más avanzados que el curso principal, y no cierran nada: puedes volver cuando quieras."
+    ]
+  },
+  {
     h: "Tu profesor y WhatsApp",
     p: [
       "Tu profesor ve tu avance, tus notas y lo que te cuesta, para poder ayudarte en clase.",

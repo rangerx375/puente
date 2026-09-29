@@ -1468,4 +1468,69 @@ tradeLessons.forEach((m) => {
   m.prereqs = [m.opensAfter];
 });
 
-module.exports = { units, lessons, trades, tradeLessons };
+// ---- Capítulos extra (bonus): 16 units of English for work and life in El Valle de Antón, Panamá.
+// Always open, for everyone, in any order. They never block the core course.
+// Source: "Career & Interest-Based English Units" (english-units-instructions.md).
+const bonusUnits = [
+  { id: "obra", title: "Construcción y reparaciones", titleEn: "Construction & Home Repair",
+    g: "need to / have to, imperativos, secuencia (first, then, after that), futuro (will / going to), números, medidas y precios." },
+  { id: "jardin", title: "Jardinería y paisajismo", titleEn: "Gardening & Landscaping",
+    g: "Imperativos, should / shouldn't, adverbios de frecuencia (every week, twice a month), comparativos." },
+  { id: "turismo", title: "Turismo en El Valle", titleEn: "Tourism in El Valle",
+    g: "Preguntas Wh-, direcciones y preposiciones de lugar, adjetivos descriptivos, you can / you should, presente simple para datos." },
+  { id: "universidad", title: "Inglés para la universidad", titleEn: "University English Preparation",
+    g: "Oraciones complejas, conectores (however, therefore, although), voz pasiva, registro formal e informal, citar y parafrasear." },
+  { id: "vehiculos", title: "Trámites del vehículo y seguros", titleEn: "Vehicle Paperwork & Insurance",
+    g: "need / must / have to, pasado simple para contar hechos, peticiones formales (Could you please…)." },
+  { id: "hotel", title: "Hotel y hospitalidad", titleEn: "Hotel & Hospitality",
+    g: "Formas corteses (Would you like…?, May I…?), futuro para planes, disculparse y ofrecer soluciones." },
+  { id: "psicologia", title: "Psicología familiar y médica", titleEn: "Psychology (Family & Medical)",
+    g: "Preguntas abiertas, presente perfecto (How long have you felt this way?), estilo indirecto, lenguaje suavizado." },
+  { id: "finanzas", title: "Finanzas y contabilidad", titleEn: "Finance & Accounting",
+    g: "Números, porcentajes y fechas; comparar (increased, decreased); voz pasiva (The payment was received)." },
+  { id: "oficina", title: "Oficina y trámites", titleEn: "Administration & Office Paperwork",
+    g: "Peticiones corteses, instrucciones, presente continuo para el estado de un trámite, deletrear nombres y números." },
+  { id: "social", title: "Vida diaria e inglés social", titleEn: "Daily Life & Social English",
+    g: "Presente simple, cómo hacer preguntas, Would you like to…?, How about…?, expresiones comunes." },
+  { id: "idiomas", title: "Enseñar y aprender idiomas", titleEn: "Teaching & Learning Other Languages",
+    g: "Explicar reglas en inglés (We use ___ when ___), comparar idiomas, imperativos para la clase." },
+  { id: "super", title: "El supermercado", titleEn: "Grocery Store",
+    g: "Preposiciones de lugar, contables e incontables (some, any, how much, how many), cantidades y pesos." },
+  { id: "salon", title: "Salón de uñas y peluquería", titleEn: "Nail Salon & Hair Salon",
+    g: "Would you like…?, comparativos (shorter, lighter, darker), medidas (an inch, a little bit), preguntas de confirmación." },
+  { id: "mercado", title: "El mercado de El Valle", titleEn: "El Valle Market (Crafts, Plants & Produce)",
+    g: "Voz pasiva (It is made by hand), números y precios, can / can't, adjetivos y su orden." },
+  { id: "mesero", title: "Mesero y mesera", titleEn: "Waiter / Waitress",
+    g: "Would you like…?, Can I get you…?, describir comida con adjetivos, disculpas y ofrecimientos corteses." },
+  { id: "cajero", title: "Cajero y cajera", titleEn: "Cashier",
+    g: "Números y dinero (dólares y centavos), peticiones corteses, frases cortas fijas, presente simple para reglas de la tienda." }
+];
+// Every bonus unit has the same six parts, built from the unit's section of the source document.
+const BONUS_PARTS = [
+  { part: 1, title: "Palabras (1)", titleEn: "Vocabulary 1", v: "Primera mitad del banco de vocabulario, agrupada por categorías.",
+    c: "Nombrar lo que se usa y se ve en este trabajo o tema.", rw: "Leer ejemplos cortos con cada palabra.",
+    t: ["50–75 palabras con español, tipo de palabra, pronunciación y una oración de ejemplo.", "Agrupadas por categoría (herramientas, materiales, personas, lugares…)."] },
+  { part: 2, title: "Palabras (2)", titleEn: "Vocabulary 2", v: "Segunda mitad del banco de vocabulario: acciones, problemas, personas y lugares.",
+    c: "Describir acciones y problemas del trabajo o tema.", rw: "Leer ejemplos cortos con cada palabra.",
+    t: ["50–75 palabras más, con español, tipo de palabra, pronunciación y ejemplo.", "En total la unidad tiene 100–150 palabras o más."] },
+  { part: 3, title: "Frases clave", titleEn: "Key phrases", v: "Frases hechas y moldes de oración con espacios.",
+    c: "Decir lo que necesitas con frases que sirven para muchas situaciones.", rw: "Completar moldes de oración.",
+    t: ["40 o más moldes de oración reutilizables (I need to ___ the ___ because ___.).", "Cómo cambiar las palabras del molde para decir cosas nuevas."] },
+  { part: 4, title: "Gramática para este trabajo", titleEn: "Grammar focus", v: "Palabras de la unidad dentro de las estructuras.",
+    c: "Usar las 2–3 estructuras más útiles de este campo.", rw: "Escribir oraciones con estas estructuras.",
+    t: ["2–3 estructuras gramaticales, explicadas en español con las palabras de la unidad."] },
+  { part: 5, title: "Conversaciones y juegos de roles", titleEn: "Dialogues and role-plays", v: "Frases de la unidad en conversación.",
+    c: "Hablar con clientes, turistas o vecinos de habla inglesa en El Valle.", rw: "Leer diálogos básicos e intermedios.",
+    t: ["5–8 diálogos en El Valle, de sencillos a más difíciles (nivel básico e intermedio).", "5 o más juegos de roles con los dos papeles descritos."] },
+  { part: 6, title: "Lectura, errores comunes y repaso", titleEn: "Reading, common mistakes and review", v: "Textos, mensajes, correos y formularios del campo.",
+    c: "Entender lo que se lee y evitar los errores típicos de hispanohablantes.", rw: "Leer mensajes y formularios reales del campo.",
+    t: ["Textos cortos: mensajes, correos, avisos o formularios.", "Errores comunes: falsos amigos, orden de palabras, pronunciación.", "Repaso final de toda la unidad, con una tarea para hablar."] }
+];
+const bonusLessons = [];
+bonusUnits.forEach((bu) => BONUS_PARTS.forEach((bp) => bonusLessons.push({
+  kind: "lesson", id: `ex-${bu.id}-${bp.part}`, unit: "extra", bonus: bu.id, part: bp.part, elective: true, extra: true,
+  title: `${bu.title}: ${bp.title.toLowerCase()}`, titleEn: `${bu.titleEn}: ${bp.titleEn.toLowerCase()}`,
+  g: bp.part === 4 ? bu.g : "Según la unidad: " + bu.g, v: bp.v, c: bp.c, rw: bp.rw, t: bp.t, prereqs: []
+})));
+
+module.exports = { units, lessons, trades, tradeLessons, bonusUnits, bonusLessons };

@@ -163,6 +163,7 @@ function unlocked(i) {
   const L = book().lessons[i];
   if (!L) return false;
   if (state.role === "teacher") return true;
+  if (L.extra) return true;  // bonus chapters are always open
   if (L.elective) return !!state.scores[L.opensAfter]?.passed;
   return coreLessons().indexOf(L) < openLessonCount();
 }
@@ -187,7 +188,7 @@ const lessonLabel = (id) => {
   return L.elective || !L.num ? L.title : `${L.num}. ${L.title}`;
 };
 const unitOf = (L) => (book().units || []).find((u) => u.id === L.unit);
-const unitLabel = (L) => (L.elective ? "Trabajo" : `Unidad ${unitOf(L)?.num ?? ""}`);
+const unitLabel = (L) => (L.extra ? "Capítulo extra" : L.elective ? "Trabajo" : `Unidad ${unitOf(L)?.num ?? ""}`);
 
 function speak(text) {
   if (!window.speechSynthesis) return;
@@ -600,11 +601,12 @@ function practicePanel() {
     </section>`;
 }
 
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 function tocRow(L, i) {
   const lock = !unlocked(i);
   const sc = scoreOf(L.id);
   const done = sc?.passed;
-  const tag = L.kind === "review" ? "Repaso" : L.kind === "exam" ? "Examen" : L.elective ? "" : L.num;
+  const tag = L.kind === "review" ? "Repaso" : L.kind === "exam" ? "Examen" : L.extra ? L.part : L.elective ? "" : L.num;
   let status = L.goal || "";
   if (L.kind === "review") status = `Repaso de las lecciones ${L.map.covers.map((id) => lessonById(id)?.num).filter(Boolean).join(", ")} y de lo que te cuesta.`;
   if (L.kind === "exam") status = "Examen final de la unidad.";
@@ -616,8 +618,8 @@ function tocRow(L, i) {
     <button class="toc-row ${lock ? "locked" : ""} ${done ? "passed" : ""} ${L.kind !== "lesson" ? "checkpoint" : ""}" data-open="${i}" ${lock ? "disabled" : ""}>
       <span class="toc-num">${tag}</span>
       <span>
-        <strong>${escapeHtml(L.title)}</strong>
-        <em>${escapeHtml(L.titleEn)}</em>
+        <strong>${escapeHtml(L.extra ? cap(L.title.split(": ").pop()) : L.title)}</strong>
+        <em>${escapeHtml(L.extra ? cap(L.titleEn.split(": ").pop()) : L.titleEn)}</em>
         <small>${escapeHtml(status)}</small>
       </span>
     </button>
@@ -625,7 +627,7 @@ function tocRow(L, i) {
 }
 
 function viewToc() {
-  const units = (book().units || []).filter((u) => u.id !== "oficios");
+  const units = (book().units || []).filter((u) => u.id !== "oficios" && u.id !== "extra");
   const rowsOf = (pred) => book().lessons.map((L, i) => ({ L, i })).filter(({ L }) => pred(L));
   const blocks = units.map((un) => {
     const rows = rowsOf((L) => L.unit === un.id);
@@ -646,6 +648,14 @@ function viewToc() {
     return `<h3 class="subhead">${escapeHtml(tr.title)}</h3><ol class="toc">${rows.map(({ L, i }) => tocRow(L, i)).join("")}</ol>`;
   }).join("");
   const job = book().units.find((u) => u.id === "oficios");
+  const extra = book().units.find((u) => u.id === "extra");
+  const bonus = (book().bonus || []).map((bu) => {
+    const rows = rowsOf((L) => L.bonus === bu.id);
+    if (!rows.length) return "";
+    const passed = rows.filter(({ L }) => lessonCleared(L)).length;
+    return `<details class="bonus-block"><summary><strong>${escapeHtml(bu.title)}</strong> <em>${escapeHtml(bu.titleEn)}</em> <small>${passed}/${rows.length}</small></summary>
+      <ol class="toc">${rows.map(({ L, i }) => tocRow(L, i)).join("")}</ol></details>`;
+  }).join("");
   return `
     ${practicePanel()}
     <p class="kicker">${escapeHtml(book().subtitle)}</p>
@@ -660,6 +670,14 @@ function viewToc() {
       </summary>
       ${trades}
     </details>
+    ${extra && bonus ? `<details class="level-block">
+      <summary>
+        <p class="kicker">Abiertos para todos</p>
+        <h2>${escapeHtml(extra.title)}</h2>
+        <p class="lede">${escapeHtml(extra.blurb)}</p>
+      </summary>
+      ${bonus}
+    </details>` : ""}
     <p class="tiny"><a href="#" data-view="how">Cómo funciona Puente</a>${state.role === "teacher"
       ? ` · <a href="#" data-view="teacher">Escritorio del profesor</a> · <a href="#" data-view="curriculum">Mapa del curso</a>`
       : ` · <a href="#" data-view="insights">Mis fuerzas y debilidades</a>`} · <a href="#" id="logout">Cerrar sesión</a></p>
@@ -803,7 +821,7 @@ function viewPage() {
         <tbody>
           ${p.items.map((it) => `<tr>
             <td><button class="word" data-say="${encodeURIComponent(it.en)}">${escapeHtml(it.en)}</button><div class="ipa">${escapeHtml(it.say || it.ipa || "")}</div></td>
-            <td>${escapeHtml(it.es)}</td>
+            <td>${escapeHtml(it.es)}${it.pos ? ` <small class="pos">${escapeHtml(it.pos)}</small>` : ""}${it.ex ? `<div class="vex"><button class="word" data-say="${encodeURIComponent(it.ex.en)}">${fill(it.ex.en)}</button><small>${fill(it.ex.es)}</small></div>` : ""}</td>
           </tr>`).join("")}
         </tbody>
       </table>`;
@@ -886,6 +904,21 @@ function viewPage() {
           </div>`).join("")}
       </div>
       <button class="btn secondary" data-play>Oír el diálogo</button>`;
+  }
+  if (p.type === "roleplay") {
+    return `
+      <p class="ex-num">${p.num}</p>
+      <h2>${escapeHtml(p.heading || "Juegos de roles")}</h2>
+      <p class="tiny">${fill(p.instruction || "")}</p>
+      ${p.scenarios.map((sc, i) => `
+        <div class="rule-box roleplay">
+          <h3 class="subhead">${i + 1}. ${fill(sc.title)}</h3>
+          <p>${fill(sc.setting)}</p>
+          <p><b>A · ${fill(sc.a.role)}:</b> ${fill(sc.a.task)}</p>
+          <p><b>B · ${fill(sc.b.role)}:</b> ${fill(sc.b.task)}</p>
+          <p class="tiny">Frases útiles:</p>
+          <ul>${sc.useful.map((x) => `<li><button class="word" data-say="${encodeURIComponent(x)}">${fill(x)}</button></li>`).join("")}</ul>
+        </div>`).join("")}`;
   }
   if (isExamPage(p)) return viewExamPage(p);
   if (p.type === "speak") {

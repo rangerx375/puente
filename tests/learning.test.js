@@ -69,9 +69,12 @@ test("lessons open one by one; job lessons open after their unit exam and never 
   assert.equal(L.isOpen({}, "u1-01"), true);
   assert.equal(L.isOpen({}, "u1-02"), false);
   assert.equal(L.openLessonCount({ "u1-01": { passed: true } }), 2);
-  const job = book.lessons.find((x) => x.elective);
+  const job = book.lessons.find((x) => x.elective && !x.extra);
   assert.equal(L.isOpen({}, job.id), false);
   assert.equal(L.isOpen({ [job.opensAfter]: { passed: true } }, job.id), true);
+  // bonus chapters are open from day one and don't change the core path
+  book.lessons.filter((x) => x.extra).forEach((x) => assert.equal(L.isOpen({}, x.id), true));
+  assert.equal(L.openLessonCount({}), 1);
 });
 
 test("a lesson exam draws 12 from its own bank, mixes skills, and a retake avoids the last draw", () => {

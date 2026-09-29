@@ -12,7 +12,8 @@ const how = require(path.join(ROOT, "curriculum", "how.js"));
 
 const core = map.lessons;
 const trades = map.tradeLessons;
-const all = [...core, ...trades];
+const bonus = map.bonusLessons;
+const all = [...core, ...trades, ...bonus];
 const byId = new Map(all.map((m) => [m.id, m]));
 const coreIndex = new Map(core.map((m, i) => [m.id, i]));
 
@@ -85,7 +86,8 @@ const knownCache = new Map();
 function knownThrough(id) {
   if (knownCache.has(id)) return knownCache.get(id);
   const m = byId.get(id);
-  const upto = m.elective ? coreIndex.get(m.opensAfter) : coreIndex.get(id);
+  // bonus chapters are open to everyone at any time: they may use the whole core course
+  const upto = m.extra ? core.length - 1 : m.elective ? coreIndex.get(m.opensAfter) : coreIndex.get(id);
   const words = new Set(FREE);
   const addPhrase = (p) => tokens(p).forEach((t) => words.add(t.toLowerCase()));
   for (let i = 0; i <= upto; i++) {
@@ -98,11 +100,14 @@ function knownThrough(id) {
     }
   }
   if (m.elective) {
-    const f = loadLesson(id);
-    if (f) {
+    // a bonus chapter also knows every word of its own unit
+    const ids = m.extra ? bonus.filter((x) => x.bonus === m.bonus).map((x) => x.id) : [id];
+    ids.forEach((x) => {
+      const f = loadLesson(x);
+      if (!f) return;
       Object.keys(f.glossary || {}).forEach(addPhrase);
       (f.pages || []).filter((p) => p.type === "vocab").forEach((p) => (p.items || []).forEach((it) => addPhrase(it.en)));
-    }
+    });
   }
   // a word taught as "helping" or "visited" also covers "help" and "visit"
   [...words].forEach((w) => stems(w).forEach((x) => { if (x.length > 2) words.add(x); }));
@@ -124,7 +129,8 @@ function englishOf(L, opts = {}) {
   };
   (L.pages || []).forEach((p, pi) => {
     const w = `page ${pi + 1} (${p.type})`;
-    if (p.type === "vocab") (p.items || []).forEach((it) => push(w, it.en));
+    if (p.type === "vocab") (p.items || []).forEach((it) => { push(w, it.en); push(w, it.ex?.en); });
+    if (p.type === "roleplay") (p.scenarios || []).forEach((sc) => (sc.useful || []).forEach((x) => push(w, x)));
     if (p.type === "grammar") (p.examples || []).forEach((ex) => push(w, ex.en));
     if (p.type === "dialogue") (p.lines || []).forEach((ln) => push(w, ln.en));
     if (p.type === "reading") { (p.text || []).forEach((s) => push(w, s)); push(w, p.title); }
@@ -171,19 +177,20 @@ function checkLesson(id) {
   const count = (t) => types.filter((x) => x === t).length;
   const known = [...Object.values(L.glossary || {})];
   if (Object.values(L.glossary || {}).some((v) => !String(v).trim())) E("glossary entries need a Spanish meaning");
-  if (Object.keys(L.glossary || {}).length > 12) W(`glossary has ${Object.keys(L.glossary).length} words; keep it short`);
+  if (!m.extra && Object.keys(L.glossary || {}).length > 12) W(`glossary has ${Object.keys(L.glossary).length} words; keep it short`);
 
+  const X = !!m.extra;  // bonus chapters: bigger, looser page structure (see AUTHORING.md)
   if (types[0] !== "open") E("first page must be open");
   if (count("open") !== 1) E("exactly one open page");
-  if (count("vocab") !== 1) E("exactly one vocab page");
-  if (count("grammar") < 1 || count("grammar") > 2) E("one or two grammar pages");
+  if (X ? count("vocab") < 1 : count("vocab") !== 1) E(X ? "at least one vocab page" : "exactly one vocab page");
+  if (X ? count("grammar") > 4 : count("grammar") < 1 || count("grammar") > 2) E(X ? "at most four grammar pages" : "one or two grammar pages");
   const ex = types.filter((t) => EXERCISES.includes(t));
-  if (ex.length < 2 || ex.length > 4) E(`2–4 exercise pages (found ${ex.length})`);
+  if (ex.length < 2 || ex.length > (X ? 8 : 4)) E(`2–${X ? 8 : 4} exercise pages (found ${ex.length})`);
   if (new Set(ex).size < 2) E("mix at least two exercise types");
-  if (!["dialogue", "reading", "speak"].some((t) => types.includes(t))) E("needs a dialogue, reading or speak page");
-  if (count("write") !== 1) E("exactly one write page");
+  if (!["dialogue", "reading", "speak", "roleplay"].some((t) => types.includes(t))) E("needs a dialogue, reading or speak page");
+  if (X ? count("write") > 1 : count("write") !== 1) E(X ? "at most one write page" : "exactly one write page");
   if (types[types.length - 1] !== "quiz" || count("quiz") !== 1) E("last page must be the one quiz");
-  const allowed = new Set(["open", "vocab", "grammar", ...EXERCISES, "dialogue", "reading", "speak", "write", "quiz"]);
+  const allowed = new Set(["open", "vocab", "grammar", ...EXERCISES, "dialogue", "reading", "speak", "write", "quiz", ...(X ? ["roleplay"] : [])]);
   types.forEach((t, i) => { if (!allowed.has(t)) E(`page ${i + 1}: unknown type ${t}`); });
 
   const spanishText = (s, where) => {
@@ -245,8 +252,12 @@ function checkLesson(id) {
     if (p.type === "vocab") {
       const have = new Set((p.items || []).map((it) => norm(it.en)));
       (m.words || []).forEach((wd) => { if (!have.has(norm(wd))) E(`${w}: map word "${wd}" is missing`); });
-      (p.items || []).forEach((it, i) => { if (!it.en || !it.es) E(`${w} item ${i + 1}: needs en and es`); });
-      if (m.elective && (p.items || []).length < 12) E(`${w}: job lessons list 12+ words`);
+      (p.items || []).forEach((it, i) => {
+        if (!it.en || !it.es) E(`${w} item ${i + 1}: needs en and es`);
+        if (it.ex && (!it.ex.en || !it.ex.es)) E(`${w} item ${i + 1}: ex needs en and es`);
+      });
+      if (m.extra && !p.heading) E(`${w}: heading (the category)`);
+      if (m.elective && !m.extra && (p.items || []).length < 12) E(`${w}: job lessons list 12+ words`);
     }
     if (p.type === "grammar") {
       if (!p.heading) E(`${w}: heading`);
@@ -260,7 +271,7 @@ function checkLesson(id) {
       if (!p.heading) E(`${w}: heading`);
       spanishText(p.instruction, `${w} instruction`);
       const n = (p.items || []).length;
-      if (n < 5 || n > 12) E(`${w}: 5–12 items (found ${n})`);
+      if (n < 5 || n > (X ? 15 : 12)) E(`${w}: 5–${X ? 15 : 12} items (found ${n})`);
       (p.items || []).forEach((it, i) => itemCheck(it, p.type, `${w} item ${i + 1}`));
       if (p.type === "choose") {
         const pos = (p.items || []).map((it) => it.answer);
@@ -272,6 +283,16 @@ function checkLesson(id) {
       (p.lines || []).forEach((ln, i) => { if (!ln.who || !ln.en || !ln.es) E(`${w} line ${i + 1}: who, en, es`); });
     }
     if (p.type === "speak" && (!p.prompt || !p.es)) E(`${w}: prompt and es`);
+    if (p.type === "roleplay") {
+      if (!p.heading) E(`${w}: heading`);
+      spanishText(p.instruction, `${w} instruction`);
+      if (!Array.isArray(p.scenarios) || !p.scenarios.length) E(`${w}: scenarios[]`);
+      (p.scenarios || []).forEach((sc, i) => {
+        if (!sc.title || !sc.setting || !sc.a?.role || !sc.a?.task || !sc.b?.role || !sc.b?.task) E(`${w} scenario ${i + 1}: title, setting, a {role, task}, b {role, task}`);
+        [sc.setting, sc.a?.task, sc.b?.task].forEach((x, j) => x && spanishText(x, `${w} scenario ${i + 1} text ${j + 1}`));
+        if (!Array.isArray(sc.useful) || sc.useful.length < 2) E(`${w} scenario ${i + 1}: useful[] English phrases`);
+      });
+    }
     if (p.type === "reading") {
       spanishText(p.before, `${w} before`);
       if (!Array.isArray(p.text) || p.text.length < 3) E(`${w}: text[] of 3+ English sentences`);
@@ -320,7 +341,7 @@ function checkLesson(id) {
     if (!caps.has(t)) caps.set(t, where);
   }));
   if (caps.size) W(`capitalized words that are not names or taught words: ${[...caps.entries()].map(([t, w]) => `${t} [${w}]`).join(", ")}`);
-  if (unknown.size) E(`English words not taught yet and not in glossary: ${[...unknown.entries()].map(([t, w]) => `${t} [${w}]`).join(", ")}`);
+  if (unknown.size) (m.extra ? W : E)(`English words not taught yet and not in glossary: ${[...unknown.entries()].map(([t, w]) => `${t} [${w}]`).join(", ")}`);
   return { errors, warnings };
 }
 
@@ -381,14 +402,17 @@ function buildLesson(m, loaded) {
     id: m.id, unit: m.unit, num: m.num, kind: m.kind, title: m.title, titleEn: m.titleEn,
     goal: m.c || "", map: mapInfo(m)
   };
-  if (m.elective) Object.assign(out, { elective: true, trade: m.trade, part: m.part, opensAfter: m.opensAfter });
+  if (m.extra) Object.assign(out, { elective: true, extra: true, bonus: m.bonus, part: m.part });
+  else if (m.elective) Object.assign(out, { elective: true, trade: m.trade, part: m.part, opensAfter: m.opensAfter });
   let pages;
   if (m.kind !== "lesson") pages = generatedPages(m);
   else {
     const L = loaded.get(m.id);
     pages = JSON.parse(JSON.stringify(L.pages));
     // word list: every English word the lesson uses, with a Spanish gloss
-    const upto = m.elective
+    const upto = m.extra
+      ? [...core.map((x) => loaded.get(x.id)), ...bonus.filter((x) => x.bonus === m.bonus).map((x) => loaded.get(x.id))].filter(Boolean)
+      : m.elective
       ? [...core.slice(0, coreIndex.get(m.opensAfter) + 1).map((x) => loaded.get(x.id)).filter(Boolean), L]
       : core.slice(0, coreIndex.get(m.id) + 1).map((x) => loaded.get(x.id)).filter(Boolean);
     const vocabPage = pages.find((p) => p.type === "vocab");
@@ -412,14 +436,15 @@ function buildLesson(m, loaded) {
   }
   const unitNo = map.units.find((x) => x.id === m.unit)?.num;
   pages.forEach((p, i) => {
-    p.num = m.elective ? `O${i + 1}` : `${m.num ?? (m.kind === "review" ? "R" : "E")}.${i + 1}`;
+    p.num = m.extra ? `X${i + 1}` : m.elective ? `O${i + 1}` : `${m.num ?? (m.kind === "review" ? "R" : "E")}.${i + 1}`;
     if (p.type === "open") {
-      p.kicker = m.elective ? `Inglés para el trabajo · ${m.title.split(":")[0]}`
+      p.kicker = m.extra ? `Capítulo extra · ${map.bonusUnits.find((b) => b.id === m.bonus).title} · parte ${m.part} de 6`
+        : m.elective ? `Inglés para el trabajo · ${m.title.split(":")[0]}`
         : `Unidad ${unitNo} · ${m.kind === "review" ? "Repaso" : m.kind === "exam" ? "Examen de la unidad" : `Lección ${m.num}`}`;
       p.heading = m.title;
     }
     if (p.type === "quiz") {
-      p.heading = p.heading || (m.elective ? "Examen de la lección" : `Examen · Lección ${m.num}`);
+      p.heading = p.heading || (m.extra ? "Repaso de la parte" : m.elective ? "Examen de la lección" : `Examen · Lección ${m.num}`);
       p.size = 12;
     }
   });
@@ -434,7 +459,7 @@ function build() {
   all.forEach((m) => {
     if (m.kind !== "lesson") return;
     const f = loadLesson(m.id);
-    if (!f) { missing.push(m.id); return; }
+    if (!f) { if (!m.extra) missing.push(m.id); return; }  // a bonus chapter not written yet is just left out
     loaded.set(m.id, f);
     const { errors } = checkLesson(m.id);
     if (errors.length) { bad += 1; console.error(`${m.id}:\n  ${errors.join("\n  ")}`); }
@@ -451,8 +476,11 @@ function build() {
     pass: 80,
     how,
     units: [...map.units, { id: "oficios", num: null, title: "Inglés para el trabajo", titleEn: "English for your job",
-      blurb: "Lecciones opcionales de tu oficio. No cierran el curso principal: ábrelas cuando quieras, una vez aprobada la unidad indicada." }],
+      blurb: "Lecciones opcionales de tu oficio. No cierran el curso principal: ábrelas cuando quieras, una vez aprobada la unidad indicada." },
+      { id: "extra", num: null, title: "Capítulos extra", titleEn: "Bonus chapters",
+        blurb: "Inglés para el trabajo y la vida en El Valle de Antón. Están abiertos siempre, para todos: entra en el que quieras, en el orden que quieras." }],
     trades: map.trades,
+    bonus: map.bonusUnits.map(({ id, title, titleEn }) => ({ id, title, titleEn })),
     lessons
   };
   const js = `// Generated by scripts/build-content.js from curriculum/. Do not edit by hand.\nwindow.PUENTE_PASS = 80;\nwindow.PUENTE_BOOK = ${JSON.stringify(book, null, 1)};\n`;

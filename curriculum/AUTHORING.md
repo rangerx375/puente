@@ -136,3 +136,43 @@ Review (`kind: "review"`) and unit-exam lessons are generated from the map, so d
 Job lessons (`of-<trade>-<part>`) use the same format, with the same rules, and only use grammar that has
 been taught by the exam named in `opensAfter`. Their `words` aren't in the map: pick about 14–18 words and
 list them in `vocab`.
+
+## Capítulos extra (bonus chapters)
+
+Lessons `ex-<unit>-<part>` (16 units × 6 parts, listed in `bonusUnits` / `BONUS_PARTS` in `map.js`) are
+**bonus chapters**: always open, for every student, in any order. They never block the core course.
+The brief for each unit is `curriculum/bonus-units.md`. These rules replace some of the core rules above:
+
+- **Setting: El Valle de Antón, Coclé, Panamá** (not the United States). Students are Panamanian
+  Spanish speakers who deal with English-speaking clients, tourists and residents. Use local places,
+  prices in US dollars / balboas, rainy vs. dry season, the jubilado discount and Punto de Oro (El Rey)
+  where the brief says so. Local characters are fine (e.g. Yamileth, Rogelio, Don Beto, Kathia) plus
+  foreign visitors and residents (e.g. Mr. and Mrs. Collins from Canada, Linda from Texas, Mark from Oregon).
+  Capitalized-name notices from the checker are only warnings.
+- **Spanish for everything the student reads that isn't the English being taught** (rule 1 still holds,
+  with no exceptions). Headings, instructions, explanations, `why`, scenario descriptions: all Spanish.
+  Use Panamanian-neutral Latin-American Spanish with *tú*.
+- **Vocabulary is not limited to earlier lessons.** Any English word may appear, but every word that
+  matters should be in a `vocab` page of the unit or in the `glossary` (any size). The checker prints
+  unknown words as warnings, not errors; keep that list short (common function words are fine).
+- **Page structure**: `open` first, `quiz` last (18–24 items, same rules as above). In between, in any
+  sensible order: 1 or more `vocab` pages (each with a `heading` = the category), 0–4 `grammar`,
+  2–8 exercise pages (5–15 items each, at least two types), at least one `dialogue`, `reading`, `speak`
+  or `roleplay`, and at most one `write`.
+- **Vocab items** may (and in parts 1–2 must) carry `pos` (tipo de palabra, in Spanish: "sustantivo",
+  "verbo", "adjetivo", "frase"…) and `ex: { en, es }`, one example sentence:
+  `{ en: "trowel", es: "palustre / llana", say: "tráuel", pos: "sustantivo", ex: { en: "Hand me the trowel, please.", es: "Pásame el palustre, por favor." } }`.
+  Sentence frames (part 3) are vocab items too, with the blank written as three underscores:
+  `{ en: "I need to ___ the ___ because ___.", es: "Necesito ___ el/la ___ porque ___.", ex: { en: "I need to seal the shower because it leaks.", es: "…" } }`.
+- **Levels**: where the brief asks, give dialogues and exercises in two levels and say so in the heading:
+  `heading: "Básico · En la ferretería"`, `heading: "Intermedio · El presupuesto"`.
+- **Role-play page** (`roleplay`, new):
+
+```js
+{ type: "roleplay", heading: "Juegos de roles", instruction: "Trabaja con un compañero. Uno hace el papel A y el otro el B. Luego cambien.",
+  scenarios: [ { title: "La ducha que gotea",
+    setting: "Una clienta canadiense te llama porque su ducha gotea.",
+    a: { role: "Técnico (tú)", task: "Pregunta qué pasa, explica el arreglo y da un precio." },
+    b: { role: "Clienta", task: "Explica el problema y pregunta cuánto cuesta y cuándo puede venir." },
+    useful: ["What seems to be the problem?", "I need to remove the old caulk.", "It will cost about $40."] } ] }
+```
