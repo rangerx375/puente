@@ -263,6 +263,7 @@
         <label class="field">Nueva contraseña (8+ caracteres) <input id="pw-new" type="password" autocomplete="new-password"></label>
         <button class="btn secondary" id="pw-save">Guardar contraseña</button>` : ""}
       <p class="tiny">
+        <a href="/informe">Informe de la clase</a> ·
         <a href="/api/teacher/csv?class=${cls.id}" download="puente-notas.csv">Descargar notas (CSV)</a> ·
         <a href="#" data-view="how">Cómo funciona (vista del alumno)</a> ·
         <a href="#" id="pw-toggle">Cambiar contraseña</a> ·
