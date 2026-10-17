@@ -109,7 +109,11 @@
 
     const active = students.filter((s) => s.quietDays < 7 && !s.dupOf).length;
     const real = students.filter((s) => !s.dupOf);
-    const hwDone = real.filter((s) => !s.hwMissing.length).length;
+    const hwDoneList = real.filter((s) => !s.hwMissing.length)
+      .sort((x, y) => fold(x.first + " " + x.last).localeCompare(fold(y.first + " " + y.last)));
+    const hwNot = real.filter((s) => s.hwMissing.length)
+      .sort((x, y) => y.hwMissing.length - x.hwMissing.length || fold(x.first).localeCompare(fold(y.first)));
+    const hwDone = hwDoneList.length;
     const attention = students.filter((s) => s.flags.some((f) => f[1] === "p-bad" || f[0] === "Possible duplicate"));
 
     // Topics most often weak across the class.
@@ -119,7 +123,7 @@
       e.n++; weakCount.set(t.topic, e);
     }
     const classWeak = [...weakCount.values()].filter((e) => e.n >= 2).sort((a, b) => b.n - a.n).slice(0, 6);
-    return { students, real, active, hwDone, attention, classWeak, hw, cls: ov.cls, classes: ov.classes || [] };
+    return { students, real, active, hwDone, hwDoneList, hwNot, attention, classWeak, hw, cls: ov.cls, classes: ov.classes || [] };
   }
 
   function sortStudents(list) {
@@ -132,6 +136,7 @@
   }
 
   function filterStudents(list) {
+    if (view.filter === "homework") return list.filter((s) => s.hwMissing.length && !s.dupOf);
     if (view.filter === "attention") return list.filter((s) => s.flags.some((f) => f[1] !== "p-ok"));
     if (view.filter === "week") return list.filter((s) => s.quietDays < 7);
     return list;
@@ -190,12 +195,48 @@
     </div>`;
   }
 
+  // Homework before class: the lessons the teacher assigned on the desk. "Done" means the lesson exam was passed (80%+).
+  function homeworkHtml(a) {
+    const ids = a.hw.map((h) => h.lesson_id);
+    const due = a.hw.map((h) => h.due).filter(Boolean).sort()[0];
+    const dueText = due ? new Date(due + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: TZ, weekday: "long", month: "short", day: "numeric" }) : "";
+    const chips = (s) => ids.map((id) => {
+      const ok = !s.hwMissing.includes(id);
+      const l = lessonById.get(id);
+      return `<span class="chip ${ok ? "c-ok" : "c-no"}" title="${esc(lessonName(id))}${ok ? " · passed" : " · not passed"}">${esc(l?.num ?? id)}</span>`;
+    }).join("");
+    const notRows = a.hwNot.map((s) => `<li>
+        <span class="hw-name"><strong>${esc(s.first)} ${esc(s.last)}</strong><small>${ids.length - s.hwMissing.length} of ${ids.length} done · last on ${s.lastSeen ? fmtDate(s.lastSeen) : "never"}</small></span>
+        <span class="chips">${chips(s)}</span>
+        <span class="hw-phone">${s.phone ? "+" + esc(s.phone) : ""}</span>
+      </li>`).join("");
+    const doneRows = a.hwDoneList.map((s) => `<li>
+        <span class="hw-name"><strong>${esc(s.first)} ${esc(s.last)}</strong><small>all ${ids.length} done · last on ${s.lastSeen ? fmtDate(s.lastSeen) : "never"}</small></span>
+        <span class="chips">${chips(s)}</span>
+        <span class="hw-phone"></span>
+      </li>`).join("");
+    return `<section class="hw">
+      <div>
+        <div class="eyebrow">Homework before class${dueText ? " · due " + esc(dueText) : ""}</div>
+        <h2>${ids.map((id) => esc(lessonName(id))).join(" · ")}</h2>
+      </div>
+      <div class="hw-cols">
+        <div>
+          <h3 class="hw-h bad">Not done · ${a.hwNot.length}</h3>
+          ${notRows ? `<ul class="hw-list">${notRows}</ul>` : `<p class="empty">Everyone has finished.</p>`}
+        </div>
+        <div>
+          <h3 class="hw-h ok">Done · ${a.hwDoneList.length}</h3>
+          ${doneRows ? `<ul class="hw-list">${doneRows}</ul>` : `<p class="empty">No one has finished all ${ids.length} yet.</p>`}
+        </div>
+      </div>
+      <p class="note" style="margin:0">A lesson counts once its exam is passed at 80% or better. Green numbers are passed lessons, red are still to do.${a.students.length > a.real.length ? " Duplicate accounts are left out." : ""}</p>
+    </section>`;
+  }
+
   function render() {
     const a = analyze(data);
     const list = filterStudents(sortStudents(a.students));
-    const hwText = a.hw.length
-      ? `${a.hw.map((h) => lessonName(h.lesson_id).split(". ")[0]).join(", ")}${a.hw[0].due ? ", due " + fmtDate(a.hw[0].due + "T12:00:00Z") : ""}`
-      : "";
     const seg = (key, opts) => `<span class="seg" role="group">${opts.map(([v, label]) =>
       `<button type="button" data-${key}="${v}" aria-pressed="${view[key] === v}">${label}</button>`).join("")}</span>`;
 
@@ -212,20 +253,13 @@
       </header>
 
       <div class="tiles">
+        <div class="tile"><b>${a.hw.length ? a.hwNot.length : "—"}</b><span>${a.hw.length ? "haven't finished the homework" : "no homework set"}</span></div>
+        <div class="tile"><b>${a.hw.length ? a.hwDone : "—"}</b><span>${a.hw.length ? "finished all " + a.hw.length + " lessons" : ""}</span></div>
         <div class="tile"><b>${a.real.length}</b><span>students${a.students.length > a.real.length ? ` (+${a.students.length - a.real.length} duplicate)` : ""}</span></div>
         <div class="tile"><b>${a.active}</b><span>active in the last 7 days</span></div>
-        <div class="tile"><b>${a.hw.length ? `${a.hwDone}/${a.real.length}` : "—"}</b><span>${a.hw.length ? `homework done (lessons ${esc(hwText)})` : "no homework set"}</span></div>
-        <div class="tile"><b>${a.attention.length}</b><span>need follow-up</span></div>
       </div>
 
-      ${a.attention.length ? `<section>
-        <h2>Follow up</h2>
-        <ul class="attn">${a.attention.map((s) => {
-          const f = s.flags.filter((x) => x[1] === "p-bad" || x[0] === "Possible duplicate");
-          return `<li><strong>${esc(s.first)} ${esc(s.last)}</strong><span class="who">${f.map((x) => esc(x[2])).join(" ")}</span></li>`;
-        }).join("")}</ul>
-      </section>` : ""}
-
+      ${a.hw.length ? homeworkHtml(a) : ""}
       ${a.classWeak.length ? `<section>
         <h2>What to reteach</h2>
         <p class="note" style="margin:0">Lessons that are weak for two or more students.</p>
@@ -236,13 +270,22 @@
         <div class="controls">
           <h2>Every student</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            ${seg("filter", [["all", "All"], ["attention", "Needs attention"], ["week", "Active this week"]])}
+            ${seg("filter", [["all", "All"], ["homework", "Homework not done"], ["attention", "Needs attention"], ["week", "Active this week"]])}
             ${seg("sort", [["progress", "Progress"], ["recent", "Last seen"], ["name", "Name"]])}
           </div>
         </div>
         <div class="roster">${list.length ? list.map(rowHtml).join("") : `<p class="empty" style="padding:16px">No students match this filter.</p>`}</div>
         <p class="note">Tap a student for details. Times are Panama time. This page refreshes itself every 5 minutes while it is open.</p>
-      </section>`;
+      </section>
+
+      ${a.attention.length ? `<section>
+        <h2>Other things to watch</h2>
+        <p class="note" style="margin:0">Not about the homework. Stuck: 8 or more exam tries but 2 or fewer lessons passed. Gone quiet: no login for 14 days or more. Not started: no lesson passed yet. Possible duplicate: same first name, overlapping surname, and no lessons.</p>
+        <ul class="attn">${a.attention.map((s) => {
+          const f = s.flags.filter((x) => x[1] === "p-bad" || x[0] === "Possible duplicate");
+          return `<li><strong>${esc(s.first)} ${esc(s.last)}</strong><span class="who">${f.map((x) => esc(x[2])).join(" ")}</span></li>`;
+        }).join("")}</ul>
+      </section>` : ""}`;
   }
 
   function gate() {

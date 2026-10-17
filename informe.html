@@ -98,6 +98,23 @@
     .detail li span:last-child { font-variant-numeric: tabular-nums; color: var(--soft); white-space: nowrap; }
     .detail .facts li span:first-child { color: var(--muted); }
     @media (max-width: 760px) { .detail { grid-template-columns: 1fr; } }
+
+    .hw { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 16px; gap: 16px; }
+    .hw h2 { font-size: 1.15rem; margin-top: 4px; }
+    .hw-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; }
+    @media (max-width: 760px) { .hw-cols { grid-template-columns: 1fr; } }
+    .hw-h { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; }
+    .hw-h.bad { color: var(--terra); } .hw-h.ok { color: var(--teal); }
+    .hw-list { list-style: none; margin: 0; padding: 0; display: grid; }
+    .hw-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name chips" "name phone"; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line); align-items: center; }
+    .hw-list li:first-child { border-top: 0; }
+    .hw-name { grid-area: name; min-width: 0; }
+    .hw-name small { display: block; color: var(--muted); font-size: .84rem; }
+    .chips { grid-area: chips; display: flex; gap: 4px; justify-content: end; }
+    .hw-phone { grid-area: phone; font-family: var(--mono); font-size: .78rem; color: var(--muted); text-align: right; user-select: all; }
+    .chip { width: 1.6rem; height: 1.6rem; border-radius: 6px; display: inline-grid; place-items: center; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .c-ok { background: var(--teal-soft); color: var(--teal); }
+    .c-no { background: var(--terra-soft); color: var(--terra); box-shadow: inset 0 0 0 1px var(--terra); }
     .empty { color: var(--muted); font-size: .92rem; }
     .note { color: var(--muted); font-size: .85rem; }
     .gate { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: grid; gap: 10px; max-width: 34rem; }
