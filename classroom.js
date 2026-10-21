@@ -10,6 +10,7 @@
 
   const t = {
     overview: null, classId: null, studentId: null, detail: null, exams: null, msg: "", busy: false, showPw: false,
+    scores: { text: "", report: null, errors: null },
     wa: { template: "aviso", text: "", audience: "all", picked: new Set(), publish: true }
   };
 
@@ -25,6 +26,7 @@
     if (m) return `${m} min`;
     return `${s} s`;
   }
+  const pct = (v) => (v == null ? "—" : `${v}%`);
   const when = (d) => (d ? new Date(d).toLocaleDateString("es", { day: "numeric", month: "short" }) : "—");
   const refresh = () => { if (typeof render === "function") render(); };
   const phoneShow = (p) => {
@@ -187,6 +189,36 @@
     }).join("");
   }
 
+  // ---------- in-class exam scores (the weekly table from Excel)
+
+  function scoresSection(o) {
+    const sc = t.scores;
+    const r = sc.report;
+    const list = (title, arr) => (arr && arr.length ? `<p class="tiny"><strong>${title}</strong></p><ul class="tiny">${arr.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
+    const preview = sc.errors
+      ? `<div class="rule-box">${list("No se pudo leer la tabla:", sc.errors)}</div>`
+      : r ? `<div class="rule-box">
+          <p class="tiny"><strong>${r.saved ? "Guardado." : "Revisión (todavía no se ha guardado):"}</strong>
+            Exámenes: ${r.exams.map((e) => `${esc(e.date)} – ${esc(e.name)} (${e.kind === "oral" ? "oral" : "escrito"}${e.isNew ? ", nuevo" : ""})`).join(" · ")}.
+            Notas nuevas: ${r.add}. Iguales a las guardadas: ${r.same}.</p>
+          ${list("Recuperaciones (el 0 se cambia por la nota nueva):", r.makeup)}
+          ${list("Nombres que no coinciden con ningún alumno (no se guardan; corrija el nombre y vuelva a pegar):", r.unmatched)}
+          ${list("Nombres que coinciden con más de una cuenta (no se guardan):", r.ambiguous)}
+          ${list("Alumnos que no se califican (no se guardan):", r.ungraded)}
+          ${list("Ya tenían otra nota (no se cambia; si es un error, borre el examen y vuelva a subirlo):", r.conflict)}
+          ${r.saved ? "" : `<button class="btn" id="scores-save">Guardar estas notas</button>`}
+        </div>` : "";
+    const exams = (o.classExams || []).map((e) => `<li>${esc(e.date)} – ${esc(e.name)} <small>(${e.kind === "oral" ? "oral" : "escrito"} · ${e.count} notas)</small>
+        <button class="linkish" data-del-cexam="${e.id}">Borrar</button></li>`).join("");
+    return `<h3 class="subhead">Notas de los exámenes de clase</h3>
+      <p class="tiny">Nota de la clase = lecciones de la app 50% (promedio de la mejor nota de cada lección) + exámenes escritos 40% + exámenes orales 10%. Cada alumno la ve en su página de inicio.</p>
+      <p class="tiny">Copie la tabla de Excel (la columna de nombres y una columna por examen, con títulos como «Oct. 19 – Class 1 Exam») y péguela aquí. Un examen con «Oral» en el nombre cuenta como oral. Una celda vacía no cuenta; 0% sí cuenta.</p>
+      <textarea id="scores-text" rows="5" placeholder="Student&#9;Oct. 19 – Class 1 Exam&#9;Oct. 19 – Class 1 Oral Exam">${esc(sc.text)}</textarea>
+      <button class="btn secondary" id="scores-check">Revisar la tabla</button>
+      ${preview}
+      ${exams ? `<p class="tiny"><strong>Exámenes guardados:</strong></p><ul class="tiny">${exams}</ul>` : ""}`;
+  }
+
   function viewDesk() {
     const o = t.overview;
     if (!o) { setTimeout(() => loadOverview(t.classId), 0); return `<p class="tiny">Cargando el escritorio…</p>`; }
@@ -205,6 +237,7 @@
       return `<tr class="${s.late ? "late" : s.ready ? "ready" : ""}">
         <td><button class="linkish" data-student="${s.id}">${esc(s.first)} ${esc(s.last)}</button>
           ${s.phone ? `<a class="wa-mini" href="https://wa.me/${esc(s.phone)}" target="_blank" rel="noopener" title="WhatsApp ${esc(phoneShow(s.phone))}">WhatsApp</a>` : `<small class="bad">sin WhatsApp</small>`}</td>
+        <td>${s.grade ? `<b>${pct(s.grade.overall)}</b>` : s.graded ? "—" : `<small>no se califica</small>`}</td>
         <td>${s.current ? esc(s.current.label) : "—"}</td>
         <td>${o.homework.length ? `${s.homeworkPassed.length}/${o.homework.length}` : "—"}</td>
         <td>${last}</td>
@@ -235,10 +268,11 @@
       <h3 class="subhead">Alumnos (${o.roster.length})</h3>
       <div class="table-wrap">
         <table class="gradebook">
-          <thead><tr><th>Alumno</th><th>Va por</th><th>Tarea</th><th>Último examen</th><th>En seguimiento</th><th>Práctica</th><th>Tiempo</th><th>Visto</th><th>Estado</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="9">Aún no hay alumnos. Aparecen al entrar con el código ${esc(cls.code)}.</td></tr>`}</tbody>
+          <thead><tr><th>Alumno</th><th>Nota</th><th>Va por</th><th>Tarea</th><th>Último examen</th><th>En seguimiento</th><th>Práctica</th><th>Tiempo</th><th>Visto</th><th>Estado</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="10">Aún no hay alumnos. Aparecen al entrar con el código ${esc(cls.code)}.</td></tr>`}</tbody>
         </table>
       </div>
+      ${scoresSection(o)}
       ${whatsappSection(o)}
       <h3 class="subhead">Tarea de clase</h3>
       <p class="tiny">Las lecciones que toda la clase debe aprobar para la fecha.</p>
@@ -295,6 +329,19 @@
       });
     });
     $("#pw-toggle")?.addEventListener("click", (e) => { e.preventDefault(); t.showPw = !t.showPw; refresh(); });
+    $("#scores-text")?.addEventListener("input", (e) => { t.scores.text = e.target.value; t.scores.report = null; t.scores.errors = null; });
+    const sendScores = (save) => run(async () => {
+      const r = await api("POST", "teacher/class-scores", { classId: t.classId, text: t.scores.text, save });
+      t.scores.errors = r.ok ? null : r.errors;
+      t.scores.report = r.ok ? r.report : null;
+      if (save && r.ok) await loadOverview(t.classId);
+    });
+    $("#scores-check")?.addEventListener("click", () => sendScores(false));
+    $("#scores-save")?.addEventListener("click", () => sendScores(true));
+    $$("[data-del-cexam]").forEach((b) => b.addEventListener("click", () => {
+      if (!confirm("¿Borrar este examen y todas sus notas?")) return;
+      run(async () => { await api("DELETE", `teacher/class-exams/${b.dataset.delCexam}`, {}); t.scores.report = null; await loadOverview(t.classId); }, "Examen borrado.");
+    }));
     $("#pw-save")?.addEventListener("click", () => run(async () => {
       await api("POST", "teacher/password", { current: $("#pw-cur").value, next: $("#pw-new").value });
       t.showPw = false;
@@ -441,6 +488,10 @@
       <h1>${esc(st.first)} ${esc(st.last)}</h1>
       <p class="lede">Lecciones abiertas: ${d.openLessons} de ${lessons().filter((L) => !L.elective).length} · Tiempo en lecciones: ${formatTime(totalTime)} · Última vez: ${when(st.last_seen)}</p>
       ${msg}
+      <h2>Nota de la clase</h2>
+      ${d.grade ? `<p><b style="font-size:1.4em">${pct(d.grade.overall)}</b> · Lecciones ${pct(d.grade.lessons)} <small>(${d.grade.lessonCount} lecciones)</small> · Escritos ${pct(d.grade.written)} · Orales ${pct(d.grade.oral)}</p>` : `<p class="tiny">${st.graded === false ? "Este alumno no se califica: no aparece en las notas ni en la tabla de exámenes." : "Todavía no hay notas."}</p>`}
+      ${(d.classExams || []).length && st.graded !== false ? `<ul class="tiny">${d.classExams.map((e) => `<li>${esc(e.date)} – ${esc(e.name)}: <b>${pct(e.percent)}</b></li>`).join("")}</ul>` : ""}
+      <label class="tiny"><input type="checkbox" id="stu-graded" ${st.graded === false ? "" : "checked"}> Se califica (desmarque para un alumno que usa la app pero no viene a clase)</label>
       <div class="row wrap">
         <label class="field">WhatsApp
           <input id="stu-phone" type="tel" value="${esc(st.phone ? "+" + st.phone : "")}" placeholder="6123 4567" maxlength="20">
@@ -518,6 +569,10 @@
       if (!confirm("¿Borrar esta práctica?")) return;
       run(async () => { await api("DELETE", `teacher/assignments/${b.dataset.delPractice}`, {}); await reload(); }, "Práctica borrada.");
     }));
+    $("#stu-graded")?.addEventListener("change", (e) => run(async () => {
+      await api("PUT", `teacher/students/${id}/graded`, { graded: e.target.checked });
+      await reload();
+    }, "Guardado."));
     $("#save-phone")?.addEventListener("click", () => run(async () => {
       const r = await api("PUT", `teacher/students/${id}/phone`, { phone: $("#stu-phone").value });
       t.detail.student.phone = r.phone;

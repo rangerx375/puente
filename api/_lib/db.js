@@ -110,6 +110,24 @@ create table if not exists paper_grades (
   grade text not null,
   primary key (student_id, lesson_id)
 );
+create table if not exists class_exams (
+  id serial primary key,
+  class_id int not null references classes(id) on delete cascade,
+  exam_date text not null,
+  name text not null,
+  kind text not null,
+  key text not null,
+  created_at timestamptz not null default now(),
+  unique (class_id, key)
+);
+create table if not exists class_exam_scores (
+  exam_id int not null references class_exams(id) on delete cascade,
+  student_id int not null references students(id) on delete cascade,
+  percent numeric(5,2) not null,
+  updated_at timestamptz not null default now(),
+  primary key (exam_id, student_id)
+);
+alter table students add column if not exists graded boolean not null default true;
 `;
 
 let ready = null;

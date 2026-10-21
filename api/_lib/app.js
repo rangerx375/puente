@@ -3,6 +3,7 @@ const { db } = require("./db.js");
 const auth = require("./auth.js");
 const { book, bank, grading, PASS, lessonTitle } = require("./book.js");
 const L = require("./learning.js");
+const G = require("./grades.js");
 const { EXERCISE_TYPES } = require("../../bank.js");
 
 // ---------- plumbing
@@ -149,21 +150,37 @@ async function studentLogin(q, body, res) {
   return { ok: true };
 }
 
+// Every in-class exam of a class, and each student's scores on them.
+async function classExams(q, classId) {
+  const [{ rows: exams }, { rows: scores }] = await Promise.all([
+    q(`select id, exam_date, name, kind, key, created_at from class_exams where class_id = $1 order by created_at, id`, [classId]),
+    q(`select x.exam_id, x.student_id, x.percent::float as percent from class_exam_scores x
+         join class_exams e on e.id = x.exam_id where e.class_id = $1`, [classId])
+  ]);
+  return { exams, scores };
+}
+const examsOf = ({ exams, scores }, studentId) => scores.filter((x) => x.student_id === studentId)
+  .map((x) => ({ ...x, kind: exams.find((e) => e.id === x.exam_id)?.kind }));
+
 async function studentMe(q, user) {
-  const [{ rows: prog }, attempts, practice, { rows: homework }, announcements, responses] = await Promise.all([
+  const [{ rows: prog }, attempts, practice, { rows: homework }, announcements, responses, cx, { rows: me }] = await Promise.all([
     q(`select state from progress where student_id = $1`, [user.id]),
     attemptsFor(q, user.id),
     practiceList(q, user.id),
     q(`select lesson_id, to_char(due, 'YYYY-MM-DD') as due from homework where class_id = $1 order by lesson_id`, [user.class_id]),
     announcementsFor(q, user.class_id, 3),
-    responsesFor(q, user.id)
+    responsesFor(q, user.id),
+    classExams(q, user.class_id),
+    q(`select graded from students where id = $1`, [user.id])
   ]);
+  const scores = L.scoresFromAttempts(attempts);
   q(`update students set last_seen = now() where id = $1`, [user.id]).catch(() => {});
   return {
     role: "student",
     student: { first: user.first, last: user.last, phone: user.phone || "", className: user.class_name, classCode: user.class_code },
     state: prog[0]?.state || {},
-    scores: L.scoresFromAttempts(attempts),
+    scores,
+    grade: me[0]?.graded === false ? null : G.classGrade(scores, examsOf(cx, user.id)),
     tracking: L.tracking(responses).slice(0, 8),
     practice,
     homework,
@@ -420,7 +437,7 @@ async function ownClass(q, teacherId, classId) {
 }
 async function ownStudent(q, teacherId, studentId) {
   const { rows } = await q(
-    `select s.id, s.first, s.last, s.phone, s.class_id, s.last_seen, s.created_at, c.name as class_name
+    `select s.id, s.first, s.last, s.phone, s.graded, s.class_id, s.last_seen, s.created_at, c.name as class_name
        from students s join classes c on c.id = s.class_id where s.id = $1 and c.teacher_id = $2`, [studentId, teacherId]);
   if (!rows[0]) fail(404, "Alumno no encontrado.");
   return rows[0];
@@ -429,8 +446,8 @@ async function ownStudent(q, teacherId, studentId) {
 const sumTime = (state) => Object.values(isObj(state?.timeMs) ? state.timeMs : {}).reduce((a, b) => a + (Number(b) || 0), 0);
 
 async function classRoster(q, classId) {
-  const [{ rows: students }, { rows: attempts }, { rows: responses }, { rows: sets }, { rows: homework }] = await Promise.all([
-    q(`select s.id, s.first, s.last, s.phone, s.last_seen, s.created_at, p.state from students s left join progress p on p.student_id = s.id
+  const [{ rows: students }, { rows: attempts }, { rows: responses }, { rows: sets }, { rows: homework }, cx] = await Promise.all([
+    q(`select s.id, s.first, s.last, s.phone, s.graded, s.last_seen, s.created_at, p.state from students s left join progress p on p.student_id = s.id
         where s.class_id = $1 order by lower(s.last), lower(s.first)`, [classId]),
     q(`select a.student_id, a.source, a.lesson_id, a.percent, a.n_right, a.n_total, a.passed, a.created_at
          from attempts a join students s on s.id = a.student_id
@@ -440,7 +457,8 @@ async function classRoster(q, classId) {
         where s.class_id = $1 order by r.created_at desc, r.id desc limit 200000`, [classId]),
     q(`select a.student_id, a.status, count(*)::int as n from assignments a join students s on s.id = a.student_id
         where s.class_id = $1 group by a.student_id, a.status`, [classId]),
-    q(`select lesson_id, to_char(due, 'YYYY-MM-DD') as due from homework where class_id = $1`, [classId])
+    q(`select lesson_id, to_char(due, 'YYYY-MM-DD') as due from homework where class_id = $1`, [classId]),
+    classExams(q, classId)
   ]);
   const group = (rows) => rows.reduce((m, r) => { (m[r.student_id] = m[r.student_id] || []).push(r); return m; }, {});
   const att = group(attempts);
@@ -466,10 +484,15 @@ async function classRoster(q, classId) {
       tracking: tracked.slice(0, 3).map((t) => ({ topic: t.topic, title: t.title })),
       trackingCount: tracked.length,
       practiceOpen: counts.open || 0, practiceDone: counts.done || 0,
+      graded: s.graded !== false,
+      grade: s.graded === false ? null : G.classGrade(scores, examsOf(cx, s.id)),
       scores
     };
   });
-  return { roster, homework };
+  return { roster, homework, classExams: cx.exams.map((e) => ({
+    id: e.id, date: e.exam_date, name: e.name, kind: e.kind,
+    count: cx.scores.filter((x) => x.exam_id === e.id).length
+  })) };
 }
 
 async function teacherOverview(q, user, classId) {
@@ -480,8 +503,8 @@ async function teacherOverview(q, user, classId) {
   const active = classes.filter((c) => !c.archived);
   const pick = classes.find((c) => c.id === classId) || active[0] || classes[0];
   if (!pick) return { classes, cls: null, roster: [], homework: [], announcements: [] };
-  const [{ roster, homework }, announcements] = await Promise.all([classRoster(q, pick.id), announcementsFor(q, pick.id, 20)]);
-  return { teacher: { name: user.name }, classes, cls: pick, roster, homework, announcements };
+  const [{ roster, homework, classExams: exams }, announcements] = await Promise.all([classRoster(q, pick.id), announcementsFor(q, pick.id, 20)]);
+  return { teacher: { name: user.name }, classes, cls: pick, roster, homework, classExams: exams, announcements };
 }
 
 async function studentDetail(q, teacherId, studentId) {
@@ -498,9 +521,14 @@ async function studentDetail(q, teacherId, studentId) {
     q(`select state from progress where student_id = $1`, [st.id])
   ]);
   const scores = L.scoresFromAttempts(attempts);
+  const cx = await classExams(q, st.class_id);
+  const mine = examsOf(cx, st.id);
   return {
     student: st,
     scores,
+    grade: st.graded === false ? null : G.classGrade(scores, mine),
+    classExams: cx.exams.map((e) => ({ id: e.id, date: e.exam_date, name: e.name, kind: e.kind,
+      percent: mine.find((x) => x.exam_id === e.id)?.percent ?? null })),
     openLessons: L.openLessonCount(scores),
     insights: { ...L.mastery(responses), skills: L.SKILL_ES },
     tracking: L.tracking(responses),
@@ -509,6 +537,56 @@ async function studentDetail(q, teacherId, studentId) {
     paper: Object.fromEntries(paper.map((p) => [p.lesson_id, p.grade])),
     timeMs: isObj(prog[0]?.state?.timeMs) ? prog[0].state.timeMs : {}
   };
+}
+
+// The weekly score table from class (names + one column per exam). Without save it only reports what
+// would happen. Names must match exactly (case and accents aside); unmatched names are listed, never guessed.
+// Students marked "no se califica" are skipped. A stored 0 is replaced by a make-up score; any other
+// stored score that differs is left alone and reported.
+async function importScores(q, tx, user, body) {
+  const cls = await ownClass(q, user.id, int(body.classId));
+  const parsed = G.parseTable(body.text);
+  if (parsed.errors.length) return { ok: false, errors: parsed.errors };
+  const { rows: students } = await q(`select id, first, last, graded from students where class_id = $1`, [cls.id]);
+  const matched = G.matchStudents(parsed.rows, students);
+  const { rows: known } = await q(`select id, key from class_exams where class_id = $1`, [cls.id]);
+  const examIds = parsed.exams.map((e) => known.find((k) => k.key === e.key)?.id || null);
+  const ids = examIds.filter(Boolean);
+  const { rows: stored } = ids.length
+    ? await q(`select exam_id, student_id, percent::float as percent from class_exam_scores where exam_id = any($1)`, [ids])
+    : { rows: [] };
+  const report = { add: 0, same: 0, makeup: [], conflict: [], unmatched: [], ambiguous: [], ungraded: [] };
+  const writes = [];
+  matched.forEach((r) => {
+    if (!r.student) { (r.ambiguous ? report.ambiguous : report.unmatched).push(r.name); return; }
+    if (r.student.graded === false) { report.ungraded.push(r.name); return; }
+    r.scores.forEach((v, i) => {
+      const old = examIds[i] ? stored.find((x) => x.exam_id === examIds[i] && x.student_id === r.student.id)?.percent : undefined;
+      const what = G.decide(old, v);
+      const ex = parsed.exams[i];
+      if (what === "add") { report.add += 1; writes.push([i, r.student.id, v]); }
+      else if (what === "same") report.same += 1;
+      else if (what === "makeup") { report.makeup.push(`${r.name}: ${ex.name} 0% → ${v}%`); writes.push([i, r.student.id, v]); }
+      else if (what === "conflict") report.conflict.push(`${r.name}: ${ex.name} ya tiene ${old}%, la tabla dice ${v}%`);
+    });
+  });
+  report.exams = parsed.exams.map((e, i) => ({ date: e.date, name: e.name, kind: e.kind, isNew: !examIds[i] }));
+  if (!body.save) return { ok: true, saved: false, report };
+  await tx(async (t) => {
+    for (let i = 0; i < parsed.exams.length; i += 1) {
+      if (examIds[i]) continue;
+      const e = parsed.exams[i];
+      const { rows } = await t(
+        `insert into class_exams (class_id, exam_date, name, kind, key) values ($1, $2, $3, $4, $5)
+         on conflict (class_id, key) do update set name = class_exams.name returning id`, [cls.id, e.date, e.name, e.kind, e.key]);
+      examIds[i] = rows[0].id;
+    }
+    for (const [i, sid, v] of writes) {
+      await t(`insert into class_exam_scores (exam_id, student_id, percent) values ($1, $2, $3)
+               on conflict (exam_id, student_id) do update set percent = excluded.percent, updated_at = now()`, [examIds[i], sid, v]);
+    }
+  });
+  return { ok: true, saved: true, report };
 }
 
 // The last graded exams of one student, with every answer, so the teacher can see what went wrong.
@@ -671,6 +749,18 @@ on("PUT", "teacher/students/:id/paper", "teacher", async ({ q, user, params, bod
   else await q(
     `insert into paper_grades (student_id, lesson_id, grade) values ($1, $2, $3)
      on conflict (student_id, lesson_id) do update set grade = excluded.grade`, [st.id, lessonId, grade]);
+  return { ok: true };
+});
+on("PUT", "teacher/students/:id/graded", "teacher", async ({ q, user, params, body }) => {
+  const st = await ownStudent(q, user.id, int(params.id));
+  await q(`update students set graded = $2 where id = $1`, [st.id, !!body.graded]);
+  return { ok: true, graded: !!body.graded };
+});
+on("POST", "teacher/class-scores", "teacher", ({ q, tx, user, body }) => importScores(q, tx, user, body));
+on("DELETE", "teacher/class-exams/:id", "teacher", async ({ q, user, params }) => {
+  const { rowCount } = await q(
+    `delete from class_exams e using classes c where e.id = $1 and c.id = e.class_id and c.teacher_id = $2`, [int(params.id), user.id]);
+  if (!rowCount) fail(404, "Examen no encontrado.");
   return { ok: true };
 });
 on("DELETE", "teacher/students/:id", "teacher", async ({ q, user, params }) => {

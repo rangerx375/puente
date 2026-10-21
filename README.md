@@ -25,6 +25,15 @@ cleaning, restaurant, landscaping, childcare/home care, warehouse).
 - A concept goes into tracking when missed and leaves after 4 right in a row with 80% mastery.
 - Every exam instance is stored (`exams` table) so it can be resumed and the teacher can see answers.
 
+## Class grade
+
+Each student's home page shows one class grade: lessons in the app 50% (average of the best score on
+every lesson exam taken), written class exams 40%, oral class exams 10% (`api/_lib/grades.js`).
+The teacher pastes each week's score table from Excel on the desk ("Notas de los exámenes de clase"):
+names in the first column, one column per exam headed "<date> – <exam>" ("Oral" in the name = oral).
+Names match ignoring case and accents and are never guessed; 0% counts; a later upload of the same
+exam replaces a 0 (make-up) but never another score. Students unticked "Se califica" are left out.
+
 ## WhatsApp
 
 Students register with their WhatsApp number. The teacher desk writes a personalized message

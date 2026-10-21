@@ -272,3 +272,31 @@ test("the teacher can fix a student's WhatsApp and preview a review as a new stu
   const s = await teacher.post("teacher/sample-exam", { lessonId: "u1-r1" });
   assert.equal(s.data.items.length, 20);
 });
+
+test("class exam scores: preview, save, make-up, ungraded students, and the student's grade", async () => {
+  const table = (w, o) => `Student\tOct. 19 – Class 1 Exam\tOct. 19 – Class 1 Oral Exam\nana ruiz\t${w}\t${o}\nNobody Here\t50%\t50%\n`;
+  const pre = await teacher.post("teacher/class-scores", { classId, text: table("0.00%", "100%") });
+  assert.equal(pre.data.saved, false);
+  assert.equal(pre.data.report.add, 2);
+  assert.deepEqual(pre.data.report.unmatched, ["Nobody Here"]);
+  assert.equal((await ana.get("me")).data.grade.written, null, "a preview saves nothing");
+  assert.equal((await teacher.post("teacher/class-scores", { classId, text: table("0.00%", "100%"), save: true })).data.saved, true);
+  let g = (await ana.get("me")).data.grade;
+  assert.equal(g.written, 0);
+  assert.equal(g.oral, 100);
+  const again = await teacher.post("teacher/class-scores", { classId, text: table("88%", "90%"), save: true });
+  assert.equal(again.data.report.makeup.length, 1, "the 0 is replaced");
+  assert.equal(again.data.report.conflict.length, 1, "a real score is not overwritten");
+  g = (await ana.get("me")).data.grade;
+  assert.equal(g.written, 88);
+  assert.equal(g.overall, Math.round((g.lessons * 0.5 + 88 * 0.4 + 100 * 0.1) * 10) / 10);
+  const ov = await teacher.get(`teacher/overview?class=${classId}`);
+  assert.equal(ov.data.classExams.length, 2);
+  assert.equal(ov.data.roster.find((s) => s.id === anaId).grade.overall, g.overall);
+  assert.equal((await teacher.put(`teacher/students/${anaId}/graded`, { graded: false })).status, 200);
+  assert.equal((await ana.get("me")).data.grade, null);
+  assert.deepEqual((await teacher.post("teacher/class-scores", { classId, text: table("1%", "1%") })).data.report.ungraded, ["ana ruiz"]);
+  await teacher.put(`teacher/students/${anaId}/graded`, { graded: true });
+  assert.equal((await teacher.del(`teacher/class-exams/${ov.data.classExams[0].id}`)).status, 200);
+  assert.equal((await ana.get("me")).data.grade.written, null);
+});

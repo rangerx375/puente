@@ -575,6 +575,12 @@ details.level-block[open] > summary h2::after { content: " ▾"; }
 
 .next-step { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 14px; margin: 10px 0; border-radius: 12px; background: var(--teal-soft); }
 .next-step small { display: block; color: var(--teal-deep); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.grade-card { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 12px 14px; margin: 10px 0; border-radius: 12px; background: var(--white); border: 1px solid var(--teal-soft); }
+.grade-card small { display: block; color: var(--teal-deep); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.grade-card strong { font-size: 30px; line-height: 1.1; }
+.grade-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 14px; }
+.grade-card li { display: flex; justify-content: space-between; gap: 14px; }
+.grade-card li span { color: var(--muted); }
 .announce { margin: 8px 0 12px; display: grid; gap: 8px; }
 .announce p { margin: 0; padding: 10px 12px; border-left: 4px solid var(--gold); background: var(--white); border-radius: 8px; }
 .announce small { display: block; color: var(--muted); font-size: 12px; }

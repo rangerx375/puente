@@ -501,6 +501,7 @@ function applyMe(me) {
   state.classCode = me.student.classCode;
   state.scores = isObj(me.scores) ? me.scores : {};
   state.tracking = Array.isArray(me.tracking) ? me.tracking : [];
+  state.grade = isObj(me.grade) ? me.grade : null;
   state.practice = Array.isArray(me.practice) ? me.practice : [];
   state.homework = Array.isArray(me.homework) ? me.homework : [];
   state.announcements = Array.isArray(me.announcements) ? me.announcements : [];
@@ -590,6 +591,7 @@ function practicePanel() {
   return `
     <section class="practice-panel">
       <p class="kicker">Hola, ${escapeHtml(state.first)} · ${escapeHtml(state.className)}</p>
+      ${gradeCard()}
       ${news}
       ${phone}
       ${next ? `<div class="next-step"><div><small>Tu siguiente paso</small><strong>${escapeHtml(stepLabel(next))}</strong></div>
@@ -599,6 +601,21 @@ function practicePanel() {
       ${tracked}
       <p class="tiny">${done ? `Prácticas completadas: ${done} · ` : ""}<a href="#" data-view="insights">Mis fuerzas y debilidades</a></p>
     </section>`;
+}
+
+// The class grade: lessons in the app 50%, written exams 40%, oral exams 10% (computed on the server).
+const pctText = (v) => (v == null ? "—" : `${v}%`);
+function gradeCard() {
+  const g = state.role === "student" ? state.grade : null;
+  if (!g) return "";
+  return `<div class="grade-card">
+      <div><small>Tu nota de la clase</small><strong>${pctText(g.overall)}</strong></div>
+      <ul>
+        <li><span>Lecciones</span><b>${pctText(g.lessons)}</b></li>
+        <li><span>Exámenes escritos</span><b>${pctText(g.written)}</b></li>
+        <li><span>Exámenes orales</span><b>${pctText(g.oral)}</b></li>
+      </ul>
+    </div>`;
 }
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
