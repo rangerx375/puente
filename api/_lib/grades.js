@@ -2,7 +2,7 @@
 // The teacher pastes each week's score table (names + one column per exam); these are pure
 // functions over that text and over rows from the database, so they can be tested alone.
 
-const WEIGHTS = { lessons: 0.5, written: 0.4, oral: 0.1 };
+const WEIGHTS = { lessons: 0.4, written: 0.4, oral: 0.2 };
 
 const fold = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 // "Sánchez" = "sanchez", extra spaces don't matter.

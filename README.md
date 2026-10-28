@@ -27,8 +27,8 @@ cleaning, restaurant, landscaping, childcare/home care, warehouse).
 
 ## Class grade
 
-Each student's home page shows one class grade: lessons in the app 50% (average of the best score on
-every lesson exam taken), written class exams 40%, oral class exams 10% (`api/_lib/grades.js`).
+Each student's home page shows one class grade: lessons in the app 40% (average of the best score on
+every lesson exam taken), written class exams 40%, oral class exams 20% (`api/_lib/grades.js`).
 The teacher pastes each week's score table from Excel on the desk ("Notas de los exámenes de clase"):
 names in the first column, one column per exam headed "<date> – <exam>" ("Oral" in the name = oral).
 Names match ignoring case and accents and are never guessed; 0% counts; a later upload of the same

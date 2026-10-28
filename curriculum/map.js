@@ -103,7 +103,7 @@ L("u1", "El artículo the", "The article the", {
   words: ["the", "sun", "moon", "sky", "world", "floor", "room", "bathroom"],
   c: "Hablar de una cosa que los dos ya conocemos.",
   rw: "Escribir the + noun.",
-  t: ["the significa el / la / los / las.", "the se usa en singular y en plural: the book, the books.", "Cosas únicas: the sun, the moon, the Bible.", "Pronunciación: «de» delante de consonante, «di» delante de vocal."]
+  t: ["the significa el / la / los / las.", "the se usa en singular y en plural: the book, the books.", "Cosas únicas: the sun, the moon, the Bible."]
 });
 L("u1", "a / an o the", "a / an or the", {
   g: "Primera mención (a / an) frente a cosa ya conocida (the).",

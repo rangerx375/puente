@@ -3,12 +3,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const G = require("../api/_lib/grades.js");
 
-test("grade = lessons 50% + written 40% + oral 10%, one decimal", () => {
+test("grade = lessons 40% + written 40% + oral 20%, one decimal", () => {
   const g = G.classGrade({ a: { best: 90 }, b: { best: 80 } }, [{ kind: "written", percent: 98 }, { kind: "oral", percent: 100 }]);
   assert.equal(g.lessons, 85);
-  assert.equal(g.overall, 91.7); // 42.5 + 39.2 + 10
+  assert.equal(g.overall, 93.2); // 34 + 39.2 + 20
   const z = G.classGrade({ a: { best: 100 } }, [{ kind: "written", percent: 0 }, { kind: "oral", percent: 0 }]);
-  assert.equal(z.overall, 50, "a missed exam (0%) counts");
+  assert.equal(z.overall, 40, "a missed exam (0%) counts");
   assert.equal(G.classGrade({ a: { best: 70 } }, []).overall, 70, "no class exams yet: lessons alone");
   assert.equal(G.classGrade({}, []), null);
 });

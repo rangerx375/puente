@@ -119,7 +119,9 @@ module.exports = {
 ```
 
 Every quiz item also carries `kind`, one of `"choose" | "fill" | "translate" | "order"`, and uses the same
-fields as that exercise type (plus `why`). The quiz pool must:
+fields as that exercise type (plus `why`). Any exercise or quiz item may also carry `ask`: a short Spanish
+direction shown above the question in exams and reviews, which show questions without their page's
+instruction ("Escribe UNA palabra en la línea: a, an o the."). The quiz pool must:
 
 - have 18–24 items with at least three kinds, and at least 4 `choose` items;
 - test this lesson's concept only (or every form, in a "juntos" lesson);

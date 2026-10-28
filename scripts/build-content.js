@@ -116,6 +116,16 @@ function knownThrough(id) {
 }
 const isKnown = (tok, known) => /^\d/.test(tok) || [...stems(tok)].some((s) => known.has(s));
 
+// A choose question whose right answer is the mistake.
+const ASKS_FOR_WRONG = /mal escrit|está mal|incorrect|error|no es correct|cuál sobra/i;
+
+// Plural forms that are always wrong. Correct content (anything shown or accepted as right) may never use them;
+// explanations may quote them («nunca digas "mans"»).
+const WRONG_PLURALS = new Set(("mans womans childs childrens persones peoples foots feets tooths teeths mouses mices gooses geeses " +
+  "mens womens informations equipments advices furnitures luggages baggages homeworks knifes leafs wifes lifes shelfs halfs " +
+  "wolfs thiefs loafs tomatos potatos heros citys babys partys familys ladys storys countrys bodys companys dictionarys " +
+  "librarys factorys boxs buss churchs dishs watchs glasss classs brushs foxs taxs sheeps deers fishs dayes boyes keyes toyes thes").split(" "));
+
 // English strings in a lesson, with where they come from.
 function englishOf(L, opts = {}) {
   const out = [];
@@ -124,8 +134,13 @@ function englishOf(L, opts = {}) {
     if (kind === "fill") { push(where, it.before?.replace(/\([^)]*\)/g, "")); push(where, it.after?.replace(/\([^)]*\)/g, "")); (it.answers || []).forEach((a) => push(where, a)); }
     if (kind === "translate") (it.answers || []).forEach((a) => push(where, a));
     if (kind === "order") push(where, it.answer);
-    // choose options are often Spanish words; they go in the word list but aren't policed
-    if (kind === "choose" && !opts.strict) (it.options || []).forEach((o) => { if (looksEnglish(o)) push(where, o); });
+    // choose options are often Spanish words; they go in the word list but aren't policed.
+    // Only the right option goes in: the wrong ones are there to be wrong ("womans", "tooths") and must never
+    // be shown as words to learn. When the question asks for the wrong one ("¿Cuál está mal escrito?"), none go in.
+    if (kind === "choose" && !opts.strict && !ASKS_FOR_WRONG.test(it.prompt || "")) {
+      const o = it.options?.[it.answer];
+      if (o && looksEnglish(o)) push(where, o);
+    }
   };
   (L.pages || []).forEach((p, pi) => {
     const w = `page ${pi + 1} (${p.type})`;
@@ -334,6 +349,16 @@ function checkLesson(id) {
       if (!unknown.has(t.toLowerCase())) unknown.set(t.toLowerCase(), where);
     }
   }));
+  // Wrong plurals ("womans", "tooths", "informations") may never be shown or accepted as right.
+  const wrongPl = new Set();
+  const right = englishOf(L, { strict: true });
+  (L.pages || []).forEach((p, pi) => {
+    const isChoose = (it) => p.type === "choose" || p.type === "reading" || (p.type === "quiz" && (it.kind === "choose" || (!it.kind && it.options)));
+    if (p.type === "grammar") (p.mistakes || []).forEach((x) => right.push([`page ${pi + 1} (grammar) mistakes`, x.right]));
+    (p.items || []).forEach((it) => { if (isChoose(it) && !ASKS_FOR_WRONG.test(it.prompt || "")) right.push([`page ${pi + 1} (${p.type}) right option`, it.options?.[it.answer]]); });
+  });
+  right.forEach(([where, s]) => tokens(s).forEach((t) => { if (WRONG_PLURALS.has(t.toLowerCase())) wrongPl.add(`${t} [${where}]`); }));
+  if (wrongPl.size) E(`wrong plural shown as right: ${[...wrongPl].join(", ")}`);
   // Capitalized words pass only if they are names (people, places) or known words.
   const caps = new Map();
   englishOf(L, { strict: true }).forEach(([where, s]) => tokens(s).forEach((t) => {
@@ -346,6 +371,79 @@ function checkLesson(id) {
 }
 
 // ---------- build
+
+// ---------- word-list glosses for plurals
+// A plural the lesson uses but never glosses ("apples") borrows the gloss of its singular ("manzana"),
+// made plural in Spanish ("manzanas"), so the word list never pairs a plural with a singular.
+
+// Singular forms an English plural can come from, by the spelling rules (and the irregular ones).
+const IRREGULAR_PLURAL = { men: "man", women: "woman", children: "child", people: "person", feet: "foot", teeth: "tooth", mice: "mouse", geese: "goose" };
+const NOT_PLURAL = new Set("as has was is this his yes us its always perhaps news bus gas plus less unless across series species thanks pants jeans clothes scissors glasses physics politics mathematics".split(" "));
+// Words whose singular's gloss is a different word (kind = amable, but kinds = tipos): better no gloss than a wrong one.
+const NO_STEM_GLOSS = new Set("kinds goods ones opens owns calms hurts closes".split(" "));
+function pluralStems(tok) {
+  const t = tok.toLowerCase();
+  if (IRREGULAR_PLURAL[t]) return [IRREGULAR_PLURAL[t]];
+  // "baby's", "here's": possessives and contractions, not plurals
+  if (/'/.test(t) || NOT_PLURAL.has(t) || NO_STEM_GLOSS.has(t) || t.length < 4 || !t.endsWith("s") || /(ss|us|is)$/.test(t)) return [];
+  const out = [];
+  if (/[^aeiou]ies$/.test(t)) out.push(t.slice(0, -3) + "y");
+  if (t.endsWith("ves")) out.push(t.slice(0, -3) + "f", t.slice(0, -3) + "fe");
+  if (/(s|x|z|ch|sh|o)es$/.test(t)) out.push(t.slice(0, -2));
+  if (!/ies$/.test(t)) out.push(t.slice(0, -1));
+  return out.filter((x) => x.length > 2);
+}
+// The other stems, minus the -s / -es strips the spelling rules don't allow ("notes" is not "not" + es).
+function glossStems(tok) {
+  const t = tok.toLowerCase();
+  if (NO_STEM_GLOSS.has(t)) return [];
+  return [...stems(tok)].filter((s) => {
+    if (s === t.slice(0, -2) && t.endsWith("es") && !/(s|x|z|ch|sh|o)$/.test(s)) return false;
+    if (s === t.slice(0, -1) && t.endsWith("s") && (NOT_PLURAL.has(t) || /(ss|us|is)$/.test(t))) return false;
+    return true;
+  });
+}
+
+// Spanish plural of one word: casa → casas, papel → papeles, luz → luces, camión → camiones, autobús → autobuses.
+const ES_ARTICLE = { el: "los", la: "las", un: "unos", una: "unas" };
+const ES_STOP = new Set("de del en para con a al que por sin y e o u según como más menos muy entre".split(" "));
+const ES_PLURAL = { país: "países", examen: "exámenes", orden: "órdenes", joven: "jóvenes", imagen: "imágenes", origen: "orígenes",
+  resumen: "resúmenes", volumen: "volúmenes", crimen: "crímenes", margen: "márgenes", carácter: "caracteres", tour: "tours" };
+// Nouns that end like a verb (-ar, -er, -ir).
+const ES_NOUN_AR = new Set("lugar hogar collar mujer taller placer altar azúcar dólar pilar militar familiar alfiler cáncer suéter bar mar celular lunar tapir líder alquiler".split(" "));
+function pluralWordEs(w) {
+  const lower = w.toLowerCase();
+  if (ES_ARTICLE[lower]) return ES_ARTICLE[lower];
+  if (ES_PLURAL[lower]) return w[0] === w[0].toUpperCase() && w[0] !== w[0].toLowerCase() ? ES_PLURAL[lower][0].toUpperCase() + ES_PLURAL[lower].slice(1) : ES_PLURAL[lower];
+  if (!/^[a-záéíóúüñ]+$/i.test(w)) return w;
+  if (/[aeiouáéó]$/i.test(w)) return w + "s";
+  if (/[íú]$/i.test(w)) return w + "s";
+  if (/z$/i.test(w)) return w.slice(0, -1) + "ces";
+  const strip = (x) => x.normalize("NFD").replace(/[\u0301]/g, "").normalize("NFC");
+  if (/[áéíóú][ns]$/i.test(w)) return strip(w) + "es";   // camión → camiones, inglés → ingleses
+  if (/[sx]$/i.test(w)) return /^[^aeiouáéíóú]*[aeiou][^aeiouáéíóú]*$/i.test(w) ? w + "es" : w;  // mes → meses, lunes → lunes
+  return w + "es";
+}
+const isVerbEs = (w) => /^[a-záéíóúñ]*(ar|er|ir|ír)(se|le|lo|la)?$/i.test(w) && !ES_NOUN_AR.has(w.toLowerCase());
+// Plural of a gloss: each alternative (split on , ; / o) up to its first preposition; text in parentheses
+// and alternatives that are verbs ("empacar") stay as they are.
+function pluralSpanish(gloss) {
+  return String(gloss).split(/(\([^)]*\))/).map((chunk) => {
+    if (chunk.startsWith("(")) return chunk;
+    return chunk.split(/(\s*[,;/]\s*|\s+o\s+)/).map((alt, i) => {
+      if (i % 2) return alt;
+      const words = alt.split(/(\s+)/);
+      const first = words.find((x) => x.trim());
+      if (!first || isVerbEs(first) || ES_STOP.has(first.toLowerCase())) return alt;
+      let stop = false;
+      return words.map((x) => {
+        if (!x.trim() || stop) return x;
+        if (ES_STOP.has(x.toLowerCase()) || /[^a-záéíóúüñ]/i.test(x)) { stop = true; return x; }
+        return pluralWordEs(x);
+      }).join("");
+    }).join("");
+  }).join("");
+}
 
 function spanishFor(word, lessonsUpto) {
   const k = norm(word);
@@ -424,9 +522,19 @@ function buildLesson(m, loaded) {
       seen.set(k, t);
     }));
     const items = [];
-    const glossOf = (t) => spanishFor(t, upto) || [...stems(t)].map((s) => spanishFor(s, upto)).find(Boolean) || "";
+    const glossOf = (t) => {
+      const direct = spanishFor(t, upto);
+      if (direct) return direct;
+      const plural = pluralStems(t);
+      for (const s of [...plural, ...glossStems(t)]) {
+        const g = spanishFor(s, upto);
+        if (!g) continue;
+        return plural.includes(s) ? pluralSpanish(g) : g;
+      }
+      return "";
+    };
     [...seen.values()].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).forEach((t) => {
-      if (newWords.has(norm(t))) return;
+      if (newWords.has(norm(t)) || WRONG_PLURALS.has(t.toLowerCase())) return;
       const es = glossOf(t);
       if (es) items.push({ en: t, es });
     });

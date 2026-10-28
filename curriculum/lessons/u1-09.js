@@ -10,15 +10,14 @@ module.exports = {
       ],
       objectives: [
         "Usar the en singular y en plural",
-        "Decir the sun, the moon, the world",
-        "Pronunciar the como «de» o «di»"
+        "Decir the sun, the moon, the world"
       ]
     },
     {
       type: "vocab",
       heading: "Palabras nuevas",
       items: [
-        { en: "the", es: "el, la, los, las", say: "de / di" },
+        { en: "the", es: "el, la, los, las", say: "de" },
         { en: "sun", es: "sol", say: "san" },
         { en: "moon", es: "luna", say: "mun" },
         { en: "sky", es: "cielo", say: "skái" },
@@ -34,17 +33,16 @@ module.exports = {
       explain: [
         "the no cambia: sirve para masculino y femenino, singular y plural. the book (el libro), the books (los libros), the door (la puerta), the doors (las puertas).",
         "Usa the con cosas que solo hay una: the sun, the moon, the sky, the world, the Bible.",
-        "Usa the también con una cosa que los dos ya conocemos: the kitchen (la cocina de esta casa), the bathroom (el baño de aquí).",
-        "Pronunciación: delante de sonido de consonante, the suena «de»: the book. Delante de sonido de vocal suena «di»: the apple, the egg, the hour."
+        "Usa the también con una cosa que los dos ya conocemos: the kitchen (la cocina de esta casa), the bathroom (el baño de aquí)."
       ],
       table: {
-        headers: ["Español", "Inglés", "the suena"],
+        headers: ["Español", "Inglés"],
         rows: [
-          ["el sol", "the sun", "«de»"],
-          ["la luna", "the moon", "«de»"],
-          ["los niños", "the children", "«de»"],
-          ["las manzanas", "the apples", "«di»"],
-          ["la oficina", "the office", "«di»"]
+          ["el sol", "the sun"],
+          ["la luna", "the moon"],
+          ["los niños", "the children"],
+          ["las manzanas", "the apples"],
+          ["la oficina", "the office"]
         ]
       },
       examples: [
@@ -57,7 +55,7 @@ module.exports = {
       ],
       mistakes: [
         { wrong: "thes books", right: "the books", why: "the nunca cambia: no tiene plural." },
-        { wrong: "the apple, dicho «de ápol»", right: "the apple, dicho «di ápol»", why: "Delante de sonido de vocal, the suena «di»." }
+        { wrong: "sun the", right: "the sun", why: "the va delante de la palabra, igual que «el» en español." }
       ]
     },
     {
@@ -84,9 +82,9 @@ module.exports = {
         { prompt: "las puertas", options: ["the doors", "thes doors", "a doors"], answer: 0, why: "the no cambia en plural." },
         { prompt: "la Biblia", options: ["a Bible", "an Bible", "the Bible"], answer: 2, why: "la = the." },
         { prompt: "los cuartos", options: ["the room", "the rooms", "a rooms"], answer: 1, why: "los = the + plural: rooms." },
-        { prompt: "¿Cómo suena the en the apple?", options: ["«di»", "«de»", "«ze»"], answer: 0, why: "apple empieza con sonido de vocal: «di»." },
-        { prompt: "¿Cómo suena the en the moon?", options: ["«di»", "«de»", "no suena"], answer: 1, why: "moon empieza con sonido de consonante: «de»." },
-        { prompt: "¿Cómo suena the en the hour?", options: ["«de»", "no suena", "«di»"], answer: 2, why: "En hour la h no suena: empieza con sonido de vocal, «di»." },
+        { prompt: "las manzanas", options: ["the apples", "the apple", "an apples"], answer: 0, why: "las = the + plural: apples." },
+        { prompt: "el mundo", options: ["a world", "world the", "the world"], answer: 2, why: "Hay un solo mundo: the world." },
+        { prompt: "la oficina", options: ["the office", "an offices", "thes office"], answer: 0, why: "la = the." },
         { prompt: "¿Qué significa the?", options: ["un, una", "el, la, los, las", "uno, dos"], answer: 1, why: "the = el, la, los, las." }
       ]
     },
@@ -108,7 +106,7 @@ module.exports = {
       type: "speak",
       heading: "Di en voz alta",
       prompt: "the sun, the moon, the sky, the world, the egg, the apple",
-      es: "el sol, la luna, el cielo, el mundo, el huevo, la manzana (fíjate: «de» sun, pero «di» egg)"
+      es: "el sol, la luna, el cielo, el mundo, el huevo, la manzana"
     },
     {
       type: "write",
@@ -132,8 +130,8 @@ module.exports = {
         { kind: "choose", prompt: "el sol", options: ["the sun", "a sun", "sun the"], answer: 0, why: "Hay un solo sol: the sun." },
         { kind: "choose", prompt: "los libros", options: ["the book", "a books", "the books"], answer: 2, why: "the + plural: the books." },
         { kind: "choose", prompt: "las mujeres", options: ["the womans", "the women", "thes women"], answer: 1, why: "the + women (plural de woman)." },
-        { kind: "choose", prompt: "¿Cómo suena the en the egg?", options: ["«de»", "«di»", "no suena"], answer: 1, why: "egg empieza con sonido de vocal: «di»." },
-        { kind: "choose", prompt: "¿Cómo suena the en the church?", options: ["«de»", "«di»", "«ti»"], answer: 0, why: "church empieza con sonido de consonante: «de»." },
+        { kind: "choose", prompt: "los huevos", options: ["the egg", "the eggs", "an eggs"], answer: 1, why: "los = the + plural: eggs." },
+        { kind: "choose", prompt: "la iglesia", options: ["the church", "church the", "a churches"], answer: 0, why: "la = the, y va delante." },
         { kind: "choose", prompt: "¿Cuál es el plural de the?", options: ["thes", "the", "a"], answer: 1, why: "the no cambia: the book, the books." },
         { kind: "choose", prompt: "¿Por qué se dice the moon?", options: ["Porque hay una sola luna", "Porque moon es plural", "Porque moon empieza con vocal"], answer: 0, why: "Con cosas que solo hay una se usa the." },
         { kind: "choose", prompt: "el piso", options: ["the floor", "an floor", "the floors"], answer: 0, why: "el = the, singular: the floor." },

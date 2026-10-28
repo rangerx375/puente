@@ -603,7 +603,7 @@ function practicePanel() {
     </section>`;
 }
 
-// The class grade: lessons in the app 50%, written exams 40%, oral exams 10% (computed on the server).
+// The class grade: lessons in the app 40%, written exams 40%, oral exams 20% (computed on the server).
 const pctText = (v) => (v == null ? "—" : `${v}%`);
 function gradeCard() {
   const g = state.role === "student" ? state.grade : null;
@@ -611,9 +611,9 @@ function gradeCard() {
   return `<div class="grade-card">
       <div><small>Tu nota de la clase</small><strong>${pctText(g.overall)}</strong></div>
       <ul>
-        <li><span>Lecciones</span><b>${pctText(g.lessons)}</b></li>
-        <li><span>Exámenes escritos</span><b>${pctText(g.written)}</b></li>
-        <li><span>Exámenes orales</span><b>${pctText(g.oral)}</b></li>
+        <li><span>Lecciones (40%)</span><b>${pctText(g.lessons)}</b></li>
+        <li><span>Exámenes escritos (40%)</span><b>${pctText(g.written)}</b></li>
+        <li><span>Exámenes orales (20%)</span><b>${pctText(g.oral)}</b></li>
       </ul>
     </div>`;
 }
@@ -976,8 +976,13 @@ function orderField(it, i, seed) {
   </div>`;
 }
 
-// One field for any exam or practice item.
+// One field for any exam or practice item. An item may carry its own direction (ask), shown above it,
+// because exams and reviews show questions without their exercise page's instruction.
 function itemFields(it, i, seed) {
+  const ask = it.ask ? `<p class="tiny ask">${fill(it.ask)}</p>` : "";
+  return ask + itemField(it, i, seed);
+}
+function itemField(it, i, seed) {
   const kind = it.kind || G.itemKind(it);
   if (kind === "fill") {
     return `<label class="drill"><span class="n">${i + 1}.</span><span>${fill(it.before || "")}</span>
