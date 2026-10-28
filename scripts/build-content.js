@@ -119,12 +119,27 @@ const isKnown = (tok, known) => /^\d/.test(tok) || [...stems(tok)].some((s) => k
 // A choose question whose right answer is the mistake.
 const ASKS_FOR_WRONG = /mal escrit|está mal|incorrect|error|no es correct|cuál sobra/i;
 
-// Plural forms that are always wrong. Correct content (anything shown or accepted as right) may never use them;
-// explanations may quote them («nunca digas "mans"»).
-const WRONG_PLURALS = new Set(("mans womans childs childrens persones peoples foots feets tooths teeths mouses mices gooses geeses " +
-  "mens womens informations equipments advices furnitures luggages baggages homeworks knifes leafs wifes lifes shelfs halfs " +
-  "wolfs thiefs loafs tomatos potatos heros citys babys partys familys ladys storys countrys bodys companys dictionarys " +
-  "librarys factorys boxs buss churchs dishs watchs glasss classs brushs foxs taxs sheeps deers fishs dayes boyes keyes toyes thes").split(" "));
+// Plural forms that are always wrong, with the right form. Correct content (anything shown or accepted as right)
+// may never use them; explanations may quote them («nunca digas "mans"»). In a word list the word stays and its
+// plural is fixed ("tooths" is listed as "teeth").
+const PLURAL_FIX = {
+  mans: "men", womans: "women", childs: "children", childrens: "children", persones: "people", peoples: "people",
+  foots: "feet", feets: "feet", tooths: "teeth", teeths: "teeth", mouses: "mice", mices: "mice", gooses: "geese",
+  geeses: "geese", mens: "men", womens: "women", informations: "information", equipments: "equipment",
+  advices: "advice", furnitures: "furniture", luggages: "luggage", baggages: "baggage", homeworks: "homework",
+  knifes: "knives", leafs: "leaves", wifes: "wives", lifes: "lives", shelfs: "shelves", halfs: "halves",
+  wolfs: "wolves", thiefs: "thieves", loafs: "loaves", tomatos: "tomatoes", potatos: "potatoes", heros: "heroes",
+  citys: "cities", babys: "babies", partys: "parties", familys: "families", ladys: "ladies", storys: "stories",
+  countrys: "countries", bodys: "bodies", companys: "companies", dictionarys: "dictionaries", librarys: "libraries",
+  factorys: "factories", boxs: "boxes", buss: "buses", churchs: "churches", dishs: "dishes", watchs: "watches",
+  glasss: "glasses", classs: "classes", bookes: "books", leafes: "leaves", shoees: "shoes", brushs: "brushes", foxs: "foxes", taxs: "taxes", sheeps: "sheep",
+  deers: "deer", fishs: "fish", dayes: "days", boyes: "boys", keyes: "keys", toyes: "toys", thes: "the",
+};
+const WRONG_PLURALS = new Set(Object.keys(PLURAL_FIX));
+const fixPlural = (t) => {
+  const r = PLURAL_FIX[t.toLowerCase()];
+  return !r ? t : t[0] === t[0].toUpperCase() ? r[0].toUpperCase() + r.slice(1) : r;
+};
 
 // English strings in a lesson, with where they come from.
 function englishOf(L, opts = {}) {
@@ -134,13 +149,8 @@ function englishOf(L, opts = {}) {
     if (kind === "fill") { push(where, it.before?.replace(/\([^)]*\)/g, "")); push(where, it.after?.replace(/\([^)]*\)/g, "")); (it.answers || []).forEach((a) => push(where, a)); }
     if (kind === "translate") (it.answers || []).forEach((a) => push(where, a));
     if (kind === "order") push(where, it.answer);
-    // choose options are often Spanish words; they go in the word list but aren't policed.
-    // Only the right option goes in: the wrong ones are there to be wrong ("womans", "tooths") and must never
-    // be shown as words to learn. When the question asks for the wrong one ("¿Cuál está mal escrito?"), none go in.
-    if (kind === "choose" && !opts.strict && !ASKS_FOR_WRONG.test(it.prompt || "")) {
-      const o = it.options?.[it.answer];
-      if (o && looksEnglish(o)) push(where, o);
-    }
+    // choose options are often Spanish words; they go in the word list but aren't policed
+    if (kind === "choose" && !opts.strict) (it.options || []).forEach((o) => { if (looksEnglish(o)) push(where, o); });
   };
   (L.pages || []).forEach((p, pi) => {
     const w = `page ${pi + 1} (${p.type})`;
@@ -381,6 +391,12 @@ const IRREGULAR_PLURAL = { men: "man", women: "woman", children: "child", people
 const NOT_PLURAL = new Set("as has was is this his yes us its always perhaps news bus gas plus less unless across series species thanks pants jeans clothes scissors glasses physics politics mathematics".split(" "));
 // Words whose singular's gloss is a different word (kind = amable, but kinds = tipos): better no gloss than a wrong one.
 const NO_STEM_GLOSS = new Set("kinds goods ones opens owns calms hurts closes".split(" "));
+// Words whose Spanish can't be built from a stem ("news" isn't "nuevo"), so the word list says it outright.
+const GLOSS_FIX = {
+  as: "como", closes: "cierra", emojis: "emojis, caritas", goods: "productos, mercancía", calms: "calma, tranquiliza",
+  hurts: "duele", kinds: "tipos, clases", menus: "menús, cartas", news: "noticias", notes: "notas",
+  ones: "los de…, las de… (\"the red ones\")", opens: "abre", owns: "es dueño de", glasses: "vasos; lentes",
+};
 function pluralStems(tok) {
   const t = tok.toLowerCase();
   if (IRREGULAR_PLURAL[t]) return [IRREGULAR_PLURAL[t]];
@@ -517,12 +533,14 @@ function buildLesson(m, loaded) {
     const newWords = new Set(vocabPage.items.map((it) => norm(it.en)));
     const seen = new Map();
     englishOf(L).forEach(([, s]) => tokens(s).forEach((t) => {
+      t = fixPlural(t);
       const k = t.toLowerCase();
       if (seen.has(k) || /^\d/.test(t)) return;
       seen.set(k, t);
     }));
     const items = [];
     const glossOf = (t) => {
+      if (GLOSS_FIX[t.toLowerCase()]) return GLOSS_FIX[t.toLowerCase()];
       const direct = spanishFor(t, upto);
       if (direct) return direct;
       const plural = pluralStems(t);
@@ -534,7 +552,7 @@ function buildLesson(m, loaded) {
       return "";
     };
     [...seen.values()].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).forEach((t) => {
-      if (newWords.has(norm(t)) || WRONG_PLURALS.has(t.toLowerCase())) return;
+      if (newWords.has(norm(t))) return;
       const es = glossOf(t);
       if (es) items.push({ en: t, es });
     });
