@@ -9745,10 +9745,7 @@ window.PUENTE_BOOK = {
         "evening"
        ],
        "answer": "Good evening, sir",
-       "answers": [
-        "Sir good evening"
-       ],
-       "es": "Buenas noches, señor.",
+       "es": "Buenas noches, señor. (al llegar)",
        "why": "Primero el saludo, luego sir."
       }
      ],

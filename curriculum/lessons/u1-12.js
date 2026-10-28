@@ -161,7 +161,7 @@ module.exports = {
         { kind: "translate", es: "Bien, gracias. (regular)", answers: ["Okay, thanks", "Okay, thank you", "OK, thanks", "OK, thank you"], why: "Okay = bien, regular." },
         { kind: "order", words: ["church", "Welcome", "to"], answer: "Welcome to church", es: "Bienvenido a la iglesia.", why: "Welcome va primero; to church después." },
         { kind: "order", words: ["you", "Not", "And", "bad"], answer: "Not bad. And you", es: "No me va mal. ¿Y tú?", why: "Primero respondes (Not bad), luego preguntas (And you?)." },
-        { kind: "order", words: ["sir", "Good", "evening"], answer: "Good evening, sir", answers: ["Sir good evening"], es: "Buenas noches, señor.", why: "Primero el saludo, luego sir." }
+        { kind: "order", words: ["sir", "Good", "evening"], answer: "Good evening, sir", es: "Buenas noches, señor. (al llegar)", why: "Primero el saludo, luego sir." }
       ]
     }
   ]
