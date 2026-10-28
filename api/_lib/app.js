@@ -180,7 +180,7 @@ async function studentMe(q, user) {
     student: { first: user.first, last: user.last, phone: user.phone || "", className: user.class_name, classCode: user.class_code },
     state: prog[0]?.state || {},
     scores,
-    grade: me[0]?.graded === false ? null : G.classGrade(scores, examsOf(cx, user.id)),
+    grade: me[0]?.graded === false ? null : G.classGrade(scores, examsOf(cx, user.id), cx.exams),
     tracking: L.tracking(responses).slice(0, 8),
     practice,
     homework,
@@ -485,7 +485,7 @@ async function classRoster(q, classId) {
       trackingCount: tracked.length,
       practiceOpen: counts.open || 0, practiceDone: counts.done || 0,
       graded: s.graded !== false,
-      grade: s.graded === false ? null : G.classGrade(scores, examsOf(cx, s.id)),
+      grade: s.graded === false ? null : G.classGrade(scores, examsOf(cx, s.id), cx.exams),
       scores
     };
   });
@@ -526,7 +526,7 @@ async function studentDetail(q, teacherId, studentId) {
   return {
     student: st,
     scores,
-    grade: st.graded === false ? null : G.classGrade(scores, mine),
+    grade: st.graded === false ? null : G.classGrade(scores, mine, cx.exams),
     classExams: cx.exams.map((e) => ({ id: e.id, date: e.exam_date, name: e.name, kind: e.kind,
       percent: mine.find((x) => x.exam_id === e.id)?.percent ?? null })),
     openLessons: L.openLessonCount(scores),

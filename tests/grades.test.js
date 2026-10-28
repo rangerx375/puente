@@ -35,3 +35,28 @@ test("names match ignoring case and accents, never guessed; a stored 0 takes a m
   assert.equal(G.decide(80, 90), "conflict");
   assert.equal(G.decide(80, null), "blank");
 });
+
+test("a missed class exam (no score, or 0) makes the grade incomplete and says which exam", () => {
+  const given = [
+    { id: 1, exam_date: "Oct. 19", name: "Class 1 Exam", kind: "written" },
+    { id: 2, exam_date: "Oct. 19", name: "Class 1 Oral Exam", kind: "oral" },
+    { id: 3, exam_date: "Oct. 26", name: "Class 2 Exam", kind: "written" },
+    { id: 4, exam_date: "Oct. 26", name: "Class 2 Oral Exam", kind: "oral" }
+  ];
+  const lessons = { a: { best: 90 } };
+  const all = [{ exam_id: 1, kind: "written", percent: 97.5 }, { exam_id: 2, kind: "oral", percent: 65 },
+    { exam_id: 3, kind: "written", percent: 97.5 }, { exam_id: 4, kind: "oral", percent: 80 }];
+  const full = G.classGrade(lessons, all, given);
+  assert.equal(full.incomplete, undefined);
+  assert.equal(full.overall, 89.5); // 36 + 39 + 14.5
+  const g = G.classGrade(lessons, all.slice(0, 2), given);
+  assert.equal(g.incomplete, true);
+  assert.equal(g.overall, null);
+  assert.deepEqual(g.missing.map((m) => m.label), ["Examen escrito de la clase 2 (Oct. 26)", "Examen oral de la clase 2 (Oct. 26)"]);
+  assert.equal(g.written, null);
+  assert.equal(g.lessons, 90);
+  const zero = G.classGrade(lessons, [...all.slice(1), { exam_id: 1, kind: "written", percent: 0 }], given);
+  assert.deepEqual(zero.missing.map((m) => m.kind), ["written"], "a 0 is a missed exam");
+  assert.equal(zero.oral, 72.5, "the complete part still shows");
+  assert.deepEqual(G.parseTable("Student\tOct. 26 – Class 2 Exam\nX\tmissed\n").rows[0].scores, [0]);
+});

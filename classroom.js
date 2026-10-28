@@ -237,7 +237,7 @@
       return `<tr class="${s.late ? "late" : s.ready ? "ready" : ""}">
         <td><button class="linkish" data-student="${s.id}">${esc(s.first)} ${esc(s.last)}</button>
           ${s.phone ? `<a class="wa-mini" href="https://wa.me/${esc(s.phone)}" target="_blank" rel="noopener" title="WhatsApp ${esc(phoneShow(s.phone))}">WhatsApp</a>` : `<small class="bad">sin WhatsApp</small>`}</td>
-        <td>${s.grade ? `<b>${pct(s.grade.overall)}</b>` : s.graded ? "—" : `<small>no se califica</small>`}</td>
+        <td>${s.grade?.incomplete ? `<b title="${esc(s.grade.missing.map((m) => m.label).join(", "))}">Incompleta</b>` : s.grade ? `<b>${pct(s.grade.overall)}</b>` : s.graded ? "—" : `<small>no se califica</small>`}</td>
         <td>${s.current ? esc(s.current.label) : "—"}</td>
         <td>${o.homework.length ? `${s.homeworkPassed.length}/${o.homework.length}` : "—"}</td>
         <td>${last}</td>
@@ -489,7 +489,7 @@
       <p class="lede">Lecciones abiertas: ${d.openLessons} de ${lessons().filter((L) => !L.elective).length} · Tiempo en lecciones: ${formatTime(totalTime)} · Última vez: ${when(st.last_seen)}</p>
       ${msg}
       <h2>Nota de la clase</h2>
-      ${d.grade ? `<p><b style="font-size:1.4em">${pct(d.grade.overall)}</b> · Lecciones ${pct(d.grade.lessons)} <small>(${d.grade.lessonCount} lecciones)</small> · Escritos ${pct(d.grade.written)} · Orales ${pct(d.grade.oral)}</p>` : `<p class="tiny">${st.graded === false ? "Este alumno no se califica: no aparece en las notas ni en la tabla de exámenes." : "Todavía no hay notas."}</p>`}
+      ${d.grade ? `<p><b style="font-size:1.4em">${d.grade.incomplete ? "Incompleta" : pct(d.grade.overall)}</b> · Lecciones ${pct(d.grade.lessons)} <small>(${d.grade.lessonCount} lecciones)</small> · Escritos ${pct(d.grade.written)} · Orales ${pct(d.grade.oral)}</p>${d.grade.incomplete ? `<p class="tiny">Le falta: ${d.grade.missing.map((m) => esc(m.label)).join(", ")}. La nota aparece al entrar la reposición.</p>` : ""}` : `<p class="tiny">${st.graded === false ? "Este alumno no se califica: no aparece en las notas ni en la tabla de exámenes." : "Todavía no hay notas."}</p>`}
       ${(d.classExams || []).length && st.graded !== false ? `<ul class="tiny">${d.classExams.map((e) => `<li>${esc(e.date)} – ${esc(e.name)}: <b>${pct(e.percent)}</b></li>`).join("")}</ul>` : ""}
       <label class="tiny"><input type="checkbox" id="stu-graded" ${st.graded === false ? "" : "checked"}> Se califica (desmarque para un alumno que usa la app pero no viene a clase)</label>
       <div class="row wrap">

@@ -30,9 +30,12 @@ function splitRow(line, sep) {
 }
 
 // "98.00%", "98", "98,5 %" -> 98 / 98.5. A column written as fractions (0.98) is scaled by the caller.
+// "missed" (or "falta", "ausente") is a missed exam: stored as 0 so a make-up can replace it.
+const MISSED = /^(missed|absent|falt[óo]|falta|ausente)$/i;
 function parsePercent(cell) {
   const s = String(cell ?? "").trim();
   if (!s) return null;
+  if (MISSED.test(s)) return { n: 0, pct: true };
   const n = Number(s.replace("%", "").replace(",", ".").trim());
   if (!Number.isFinite(n) || n < 0) return NaN;
   return { n, pct: s.includes("%") };
@@ -105,17 +108,35 @@ function decide(stored, incoming) {
 const avg = (a) => (a.length ? a.reduce((s, x) => s + Number(x), 0) / a.length : null);
 const round1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
-// lessonScores: the scores map from learning.scoresFromAttempts. exams: [{kind, percent}] for this student.
+// lessonScores: the scores map from learning.scoresFromAttempts. exams: [{exam_id, kind, percent}] for this student.
+// given: every class exam given so far [{id, exam_date, name, kind}].
 // Lesson grade = average of the best score on every lesson exam taken. A part with nothing in it yet
 // (no exam of that kind given) drops out and the other weights are scaled up to 100%.
-function classGrade(lessonScores, exams) {
+// A student missing a class exam (no score, or 0 = missed) gets no grade: it's incomplete until the make-up is
+// entered, and `missing` says which exams.
+function classGrade(lessonScores, exams, given = []) {
   const bests = Object.values(lessonScores || {}).map((v) => v.best).filter((v) => typeof v === "number");
+  const scoreOf = (e) => exams.find((x) => x.exam_id === e.id);
+  const missing = given.filter((e) => { const x = scoreOf(e); return !x || Number(x.percent) === 0; })
+    .map((e) => ({ date: e.exam_date ?? e.date, name: e.name, kind: e.kind }))
+    .map((m) => ({ ...m, label: missingLabel(m) }));
+  const taken = exams.filter((x) => Number(x.percent) !== 0 || !given.length);
+  const short = (kind) => missing.some((m) => m.kind === kind);
   const parts = {
     lessons: avg(bests),
-    written: avg(exams.filter((e) => e.kind === "written").map((e) => e.percent)),
-    oral: avg(exams.filter((e) => e.kind === "oral").map((e) => e.percent))
+    written: short("written") ? null : avg(taken.filter((e) => e.kind === "written").map((e) => e.percent)),
+    oral: short("oral") ? null : avg(taken.filter((e) => e.kind === "oral").map((e) => e.percent))
   };
-  if (parts.lessons == null && (parts.written != null || parts.oral != null)) parts.lessons = 0;
+  if (parts.lessons == null && (exams.length || given.length)) parts.lessons = 0;
+  const counts = {
+    lessonCount: bests.length,
+    writtenCount: exams.filter((e) => e.kind === "written").length,
+    oralCount: exams.filter((e) => e.kind === "oral").length
+  };
+  if (missing.length) {
+    return { overall: null, incomplete: true, missing,
+      lessons: round1(parts.lessons), written: round1(parts.written), oral: round1(parts.oral), ...counts };
+  }
   const used = Object.keys(WEIGHTS).filter((k) => parts[k] != null);
   if (!used.length) return null;
   const w = used.reduce((s, k) => s + WEIGHTS[k], 0);
@@ -123,10 +144,15 @@ function classGrade(lessonScores, exams) {
   return {
     overall: round1(overall),
     lessons: round1(parts.lessons), written: round1(parts.written), oral: round1(parts.oral),
-    lessonCount: bests.length,
-    writtenCount: exams.filter((e) => e.kind === "written").length,
-    oralCount: exams.filter((e) => e.kind === "oral").length
+    ...counts
   };
 }
 
-module.exports = { WEIGHTS, personKey, examKey, examKind, parseTable, matchStudents, decide, classGrade };
+// "Examen escrito de la clase 2 (Oct. 26)" for a missing exam.
+function missingLabel(m) {
+  const n = String(m.name || "").match(/class\s*(\d+)/i)?.[1];
+  const what = m.kind === "oral" ? "Examen oral" : "Examen escrito";
+  return n ? `${what} de la clase ${n} (${m.date})` : `${m.name} (${m.date})`;
+}
+
+module.exports = { WEIGHTS, missingLabel, personKey, examKey, examKind, parseTable, matchStudents, decide, classGrade };

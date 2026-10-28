@@ -608,13 +608,17 @@ const pctText = (v) => (v == null ? "—" : `${v}%`);
 function gradeCard() {
   const g = state.role === "student" ? state.grade : null;
   if (!g) return "";
+  // Missing a class exam: no grade until the make-up score is in.
+  const part = (v, kind) => (g.incomplete && v == null && (g.missing || []).some((m) => m.kind === kind) ? "Incompleta" : pctText(v));
+  const why = g.incomplete ? `<p class="tiny grade-why">Tu nota está incompleta porque te falta: ${(g.missing || []).map((m) => `<b>${escapeHtml(m.label)}</b>`).join(", ")}. Cuando presentes el examen de reposición, aquí verás tu nota.</p>` : "";
   return `<div class="grade-card">
-      <div><small>Tu nota de la clase</small><strong>${pctText(g.overall)}</strong></div>
+      <div><small>Tu nota de la clase</small><strong>${g.incomplete ? "Incompleta" : pctText(g.overall)}</strong></div>
       <ul>
         <li><span>Lecciones (40%)</span><b>${pctText(g.lessons)}</b></li>
-        <li><span>Exámenes escritos (40%)</span><b>${pctText(g.written)}</b></li>
-        <li><span>Exámenes orales (20%)</span><b>${pctText(g.oral)}</b></li>
+        <li><span>Exámenes escritos (40%)</span><b>${part(g.written, "written")}</b></li>
+        <li><span>Exámenes orales (20%)</span><b>${part(g.oral, "oral")}</b></li>
       </ul>
+      ${why}
     </div>`;
 }
 
