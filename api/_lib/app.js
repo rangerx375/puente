@@ -128,7 +128,11 @@ async function studentLogin(q, body, res) {
   let { rows } = await q(`select * from students where class_id = $1 and name_key = $2`, [cls[0].id, key]);
   let st = rows[0];
   if (!st) {
-    if (!phone) fail(400, "Para registrarte, escribe tu número de WhatsApp. El profesor lo usa para mandarte avisos.");
+    if (!phone) fail(400, "No encontramos ese nombre en la clase. Si ya tienes cuenta, escribe tu nombre y apellidos exactamente como la primera vez. Si eres nuevo, escribe tu número de WhatsApp para registrarte.");
+    // A returning student who types their name a little differently would otherwise get a new,
+    // empty account and think their progress was erased. Their WhatsApp number gives them away.
+    const { rows: same } = await q(`select first, last from students where class_id = $1 and phone = $2 order by id limit 1`, [cls[0].id, phone]);
+    if (same[0]) fail(409, `Ya tienes una cuenta en esta clase como «${same[0].first} ${same[0].last}». Entra con ese nombre y apellidos y tu clave de siempre; ahí está todo tu progreso. Si olvidaste la clave, pídele al profesor que la cambie. (Si eres otra persona que comparte ese WhatsApp, escribe otro número.)`);
     ({ rows } = await q(
       `insert into students (class_id, first, last, name_key, pin_hash, phone) values ($1, $2, $3, $4, $5, $6)
        on conflict (class_id, name_key) do nothing returning *`,
@@ -657,9 +661,10 @@ const on = (method, pattern, role, fn) => {
 on("GET", "health", null, async ({ q }) => { await q("select 1"); return { ok: true }; });
 on("POST", "logout", null, async ({ res }) => { auth.clearSession(res); return { ok: true }; });
 // Signed out is a normal state here, not an error, so it answers 200 with no role.
-on("GET", "me", null, async ({ q, req }) => {
+on("GET", "me", null, async ({ q, req, res }) => {
   const user = await auth.currentUser(req, q);
   if (!user) return { role: null };
+  auth.refreshSession(req, res);
   return user.role === "student" ? studentMe(q, user) : { role: "teacher", teacher: { name: user.name } };
 });
 
@@ -802,6 +807,7 @@ async function handle(req, res) {
     if (route.role) {
       user = await auth.currentUser(req, q);
       if (!user || (route.role !== "any" && user.role !== route.role)) fail(401, "Tu sesión terminó. Vuelve a entrar.");
+      auth.refreshSession(req, res);
     }
     const body = req.method === "GET" ? {} : await readBody(req).catch((e) => { if (e instanceof HttpError) throw e; fail(400, "JSON inválido."); });
     const out = await route.fn({ q, tx, req, res, user, body, params, query: url.searchParams });

@@ -92,6 +92,33 @@ test("students register with class code, full name, WhatsApp and PIN; accents an
   assert.equal((await again.put("student/phone", { phone: "3045551234" })).data.phone, "13045551234");
 });
 
+test("a returning student who types their name differently is sent to their own account, not a new empty one", async () => {
+  const other = await client().post("student/login", { code, first: "Ana María", last: "Ruiz Paz", phone: "3045551234", pin: "1234" });
+  assert.equal(other.status, 409);
+  assert.match(other.data.error, /Ána Ruíz/);
+  const noPhone = await client().post("student/login", { code, first: "Anita", last: "Ruiz", pin: "1234" });
+  assert.equal(noPhone.status, 400);
+  assert.match(noPhone.data.error, /exactamente como la primera vez/);
+});
+
+test("sessions slide: a session signed long ago is renewed on use, a fresh one isn't re-sent", async () => {
+  const crypto = require("crypto");
+  const login = await fetch(base + "student/login", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, first: "Ana", last: "Ruiz", pin: "1234" }) });
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+  const fresh = await fetch(base + "me", { headers: { cookie } });
+  assert.equal(fresh.status, 200);
+  assert.equal(fresh.headers.get("set-cookie"), null, "a session signed today isn't re-sent");
+  // The same session, but with only a week left (signed long ago).
+  const [name, value] = cookie.split("=");
+  const p = JSON.parse(Buffer.from(decodeURIComponent(value).split(".")[0], "base64url").toString());
+  const body = Buffer.from(JSON.stringify({ ...p, exp: Date.now() + 7 * 24 * 3600 * 1000 })).toString("base64url");
+  const old = `${name}=${encodeURIComponent(`${body}.${crypto.createHmac("sha256", "puente-dev-only-secret").update(body).digest("base64url")}`)}`;
+  const used = await fetch(base + "me", { headers: { cookie: old } });
+  assert.equal(used.status, 200);
+  assert.match(used.headers.get("set-cookie") || "", /Max-Age=15552000/, "using the app renews the session for six months");
+});
+
 test("repeated wrong PINs lock the account", async () => {
   const eve = client();
   await eve.post("student/login", { code, first: "Eve", last: "Paz", phone: "3045550001", pin: "4321" });

@@ -2,7 +2,9 @@ const crypto = require("crypto");
 
 const DEV = !!global.__PUENTE_DEV_DB;
 const COOKIE = "puente_s";
-const MAX_AGE = 30 * 24 * 3600;
+// Sessions slide: every visit renews them, so only six months away signs a student out.
+const MAX_AGE = 180 * 24 * 3600;
+const DAY_MS = 24 * 3600 * 1000;
 const MAX_FAILS = 8;
 const LOCK_MINUTES = 10;
 
@@ -58,6 +60,13 @@ function cookieHeader(value, maxAge) {
 function setSession(res, role, id, sv) {
   res.setHeader("Set-Cookie", cookieHeader(sign({ r: role, id, v: sv, exp: Date.now() + MAX_AGE * 1000 }), MAX_AGE));
 }
+// Re-signs a live session at most once a day, so a student who keeps using the app never gets
+// signed out (sessions used to end 30 days after sign-in, and students who'd forgotten their exact
+// name or clave registered new, empty accounts).
+function refreshSession(req, res) {
+  const s = verify(readCookie(req));
+  if (s && s.exp - Date.now() < MAX_AGE * 1000 - DAY_MS) setSession(res, s.r, s.id, s.v);
+}
 function clearSession(res) {
   res.setHeader("Set-Cookie", cookieHeader("", 0));
 }
@@ -105,6 +114,6 @@ async function recordSuccess(q, table, id) {
 }
 
 module.exports = {
-  hashSecret, checkSecret, setSession, clearSession, currentUser,
+  hashSecret, checkSecret, setSession, refreshSession, clearSession, currentUser,
   lockedMessage, recordFailure, recordSuccess, DEV
 };
