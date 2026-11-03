@@ -256,9 +256,7 @@
           `<option value="${c.id}" ${c.id === cls.id ? "selected" : ""}>${esc(c.name)} (${c.students})${c.archived ? " · archivada" : ""}</option>`).join("")}</select>` : ""}
       </div>
       <div class="class-code">
-        <span>Código de la clase</span>
-        <b>${esc(cls.code)}</b>
-        <small>${cls.archived ? "Clase archivada: nadie puede entrar." : "Para registrarse, cada alumno escribe este código, su nombre completo, su WhatsApp y una clave que elige."}</small>
+        <small>${cls.archived ? "Clase archivada: nadie puede entrar." : "Para registrarse, cada alumno entra en inglespuente.com y escribe su nombre completo, su WhatsApp y una clave que elige. Ya no hace falta código."}</small>
       </div>
       <div class="row wrap">
         <button class="btn" data-view="curriculum">Mapa del curso</button>

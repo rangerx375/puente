@@ -353,9 +353,6 @@ function pageNav(L, p) {
 function viewLogin() {
   const tab = state.loginTab;
   const student = `
-      <label class="field">Código de la clase
-        <input id="code" type="text" value="${escapeAttr(recall("puente.classCode"))}" autocomplete="off" autocapitalize="characters" maxlength="6" placeholder="Te lo da el profesor">
-      </label>
       <label class="field">Nombre
         <input id="first" type="text" autocomplete="given-name" maxlength="40">
       </label>
@@ -429,19 +426,16 @@ function bindLogin() {
     render();
   };
   const goStudent = async () => {
-    const code = ($("#code").value || "").trim().toUpperCase();
     const first = ($("#first").value || "").trim();
     const last = ($("#last").value || "").trim();
     const phone = ($("#phone").value || "").trim();
     const pin = ($("#pin").value || "").trim();
-    if (!code) return msg("Escribe el código de la clase.");
     if (!first || !last) return msg("Escribe tu nombre y tus apellidos.");
     if (pin.length < 4) return msg("La clave necesita al menos 4 caracteres.");
     const btn = $("#enter");
     busy(btn, true, "Entrando…");
     try {
-      await api("POST", "student/login", { code, first, last, phone, pin }, { auth: false });
-      remember("puente.classCode", code);
+      await api("POST", "student/login", { first, last, phone, pin }, { auth: false });
       await afterLogin();
     } catch (e) {
       busy(btn, false, "Entrar");

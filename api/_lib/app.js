@@ -118,12 +118,14 @@ async function studentLogin(q, body, res) {
   const pin = String(body.pin || "").trim();
   const phoneRaw = String(body.phone || "").trim();
   const phone = normPhone(phoneRaw);
-  if (!code) fail(400, "Escribe el código de la clase.");
   if (!first || !last) fail(400, "Escribe tu nombre y tus apellidos.");
   if (pin.length < 4 || pin.length > 40) fail(400, "La clave necesita al menos 4 caracteres.");
   if (phoneRaw && !phone) fail(400, "El número de WhatsApp no parece correcto. Escribe tu número como lo marcas en Panamá (por ejemplo 6123 4567).");
-  const { rows: cls } = await q(`select id from classes where code = $1 and not archived`, [code]);
-  if (!cls[0]) fail(404, "No existe una clase con ese código.");
+  // Students no longer type a class code (too many were locked out by it). A code that matches an
+  // open class is still honored; otherwise the student goes to the oldest open class.
+  let { rows: cls } = code ? await q(`select id from classes where code = $1 and not archived`, [code]) : { rows: [] };
+  if (!cls[0]) ({ rows: cls } = await q(`select id from classes where not archived order by id limit 1`));
+  if (!cls[0]) fail(404, "No hay ninguna clase abierta. Avisa al profesor.");
   const key = nameKey(first, last);
   let { rows } = await q(`select * from students where class_id = $1 and name_key = $2`, [cls[0].id, key]);
   let st = rows[0];

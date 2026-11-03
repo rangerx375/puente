@@ -75,7 +75,6 @@ test("teacher login rejects a wrong password", async () => {
 });
 
 test("students register with class code, full name, WhatsApp and PIN; accents and case don't matter", async () => {
-  assert.equal((await ana.post("student/login", { code: "ZZZZZZ", first: "Ana", last: "Ruiz", phone: "3045551234", pin: "1234" })).status, 404);
   assert.equal((await ana.post("student/login", { code, first: "Ana", last: "Ruiz", phone: "3045551234", pin: "12" })).status, 400);
   const noPhone = await ana.post("student/login", { code, first: "Ana", last: "Ruiz", pin: "1234" });
   assert.equal(noPhone.status, 400, "first registration needs WhatsApp");
@@ -84,6 +83,8 @@ test("students register with class code, full name, WhatsApp and PIN; accents an
   assert.equal((await ana.post("student/login", { code: code.toLowerCase(), first: "Ána", last: "Ruíz", phone: "(304) 555-1234", pin: "1234" })).status, 200);
   const again = client();
   assert.equal((await again.post("student/login", { code, first: "ana", last: "ruiz", pin: "1234" })).status, 200, "returning students don't retype it");
+  assert.equal((await client().post("student/login", { first: "Ana", last: "Ruiz", pin: "1234" })).status, 200, "no class code needed");
+  assert.equal((await client().post("student/login", { code: "ZZZZZZ", first: "Ana", last: "Ruiz", pin: "1234" })).status, 200, "a wrong code is ignored");
   const me = await again.get("me");
   assert.equal(me.data.student.first, "Ána");
   assert.equal(me.data.student.phone, "13045551234");
@@ -275,7 +276,7 @@ test("archived classes stop accepting logins; teacher can delete a student", asy
   const bo = client();
   assert.equal((await bo.post("student/login", { code: c2.data.code, first: "Bo", last: "Li", phone: "3045550003", pin: "1111" })).status, 200);
   await teacher.patch(`teacher/classes/${c2.data.id}`, { archived: true });
-  assert.equal((await client().post("student/login", { code: c2.data.code, first: "Bo", last: "Li", pin: "1111" })).status, 404);
+  assert.equal((await client().post("student/login", { code: c2.data.code, first: "Bo", last: "Li", pin: "1111" })).status, 400, "an archived class code falls back to the open class, where Bo has no account");
   assert.equal((await bo.get("me")).data.role, null);
   assert.equal((await bo.get("insights")).status, 401);
   const ov = await teacher.get(`teacher/overview?class=${c2.data.id}`);
