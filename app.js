@@ -364,10 +364,12 @@ function viewLogin() {
         <small>Obligatorio la primera vez. El profesor lo usa para mandarte avisos y recordatorios. Si no es de EE. UU., empieza con + y el código del país.</small>
       </label>
       <label class="field">Clave (al menos 4 caracteres)
-        <input id="pin" type="password" autocomplete="current-password" maxlength="40">
+        <input id="pin" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="40">
       </label>
+      <label class="tiny" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="show-pin"> Mostrar la clave</label>
       <button class="btn full" id="enter">Entrar</button>
-      <p class="tiny">La primera vez, tu nombre completo, tu WhatsApp y tu clave crean tu cuenta en la clase. Después entras con el mismo nombre y la misma clave. Si olvidas la clave, el profesor la cambia.</p>`;
+      <p class="tiny">La primera vez, tu nombre completo, tu WhatsApp y tu clave crean tu cuenta en la clase. Después entras con el mismo nombre y la misma clave.</p>
+      <p class="tiny"><b>¿Olvidaste la clave?</b> Escribe tu nombre, el número de WhatsApp con el que te registraste y una clave nueva. Así se cambia y entras.</p>`;
   const setup = `
       <p class="tiny">Primera vez: cree la cuenta del profesor con el código de instalación.</p>
       <label class="field">Código de instalación
@@ -465,6 +467,7 @@ function bindLogin() {
       msg(e.message);
     }
   };
+  $("#show-pin")?.addEventListener("change", (e) => { $("#pin").type = e.target.checked ? "text" : "password"; });
   $("#enter")?.addEventListener("click", goStudent);
   $("#enter-teacher")?.addEventListener("click", goTeacher);
   $("#setup")?.addEventListener("click", goSetup);

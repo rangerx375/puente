@@ -141,12 +141,20 @@ async function studentLogin(q, body, res) {
       [cls[0].id, first, last, key, auth.hashSecret(pin), phone]));
     st = rows[0];
     if (!st) fail(409, "Ese nombre acaba de registrarse. Vuelve a pulsar Entrar.");
+  } else if (phone && st.phone && phone === st.phone && !auth.checkSecret(pin, st.pin_hash)) {
+    // Forgotten clave: the student's own name plus the WhatsApp number they registered with sets the
+    // clave they just typed (even while locked). Before this, only the teacher could reset it, and
+    // students who forgot it guessed until the account locked.
+    await q(`update students set pin_hash = $2, failed_logins = 0, locked_until = null where id = $1`,
+      [st.id, auth.hashSecret(pin)]);
   } else {
     const locked = auth.lockedMessage(st);
-    if (locked) fail(429, locked);
+    if (locked) fail(429, `${locked} O escribe tu número de WhatsApp de siempre y una clave nueva para cambiarla.`);
     if (!auth.checkSecret(pin, st.pin_hash)) {
       await auth.recordFailure(q, "students", st.id);
-      fail(401, "Ese nombre ya está en la clase y la clave no coincide. Si eres otra persona, añade tu segundo apellido. Si olvidaste la clave, pídele al profesor que la cambie.");
+      fail(401, phone && st.phone
+        ? "La clave no coincide, y ese WhatsApp no es el que usaste al registrarte. Escribe tu número de siempre y una clave nueva, o pídele al profesor que la cambie."
+        : "Ese nombre ya está en la clase y la clave no coincide. ¿Olvidaste la clave? Escribe tu número de WhatsApp y una clave nueva para cambiarla. Si eres otra persona, añade tu segundo apellido.");
     }
     await auth.recordSuccess(q, "students", st.id);
     if (phone && phone !== st.phone) await q(`update students set phone = $2 where id = $1`, [st.id, phone]);

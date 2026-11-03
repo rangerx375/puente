@@ -50,7 +50,7 @@ The pages are plain HTML/CSS/JS (`index.html`, `styles.css`, `content.js`, `app.
 Postgres (Neon, attached through the Vercel dashboard).
 
 - **Students** join a class with the class code, their full name, WhatsApp number and a PIN (stored hashed;
-  8 wrong tries lock the account for 10 minutes; the teacher can reset it).
+  8 wrong tries lock the account for 10 minutes; the teacher can reset it, or the student can: own name + the WhatsApp number on file + a new clave sets the new clave, even while locked).
 - **Grading happens on the server** (`grading.js` is shared with the browser, which only
   gives instant feedback). Every answer is stored with its grammar topic and question type.
 - **Strengths and weaknesses** are computed per lesson and per question type from each

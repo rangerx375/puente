@@ -127,6 +127,14 @@ test("repeated wrong PINs lock the account", async () => {
   for (let i = 0; i < 9; i++) last = await client().post("student/login", { code, first: "Eve", last: "Paz", pin: "0000" });
   assert.equal(last.status, 429);
   assert.equal((await client().post("student/login", { code, first: "Eve", last: "Paz", pin: "4321" })).status, 429);
+  // A wrong WhatsApp number doesn't reset the clave.
+  assert.equal((await client().post("student/login", { code, first: "Eve", last: "Paz", phone: "3045559999", pin: "9999" })).status, 429);
+  // Her own WhatsApp number plus a new clave resets it, even while locked.
+  const back = client();
+  assert.equal((await back.post("student/login", { code, first: "Eve", last: "Paz", phone: "3045550001", pin: "nueva1" })).status, 200);
+  assert.equal((await back.get("me")).data.student.first, "Eve");
+  assert.equal((await client().post("student/login", { code, first: "Eve", last: "Paz", pin: "nueva1" })).status, 200);
+  assert.equal((await client().post("student/login", { code, first: "Eve", last: "Paz", pin: "4321" })).status, 401);
 });
 
 test("names are cleaned of markup", async () => {
