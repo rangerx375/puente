@@ -128,6 +128,8 @@ create table if not exists class_exam_scores (
   primary key (exam_id, student_id)
 );
 alter table students add column if not exists graded boolean not null default true;
+alter table students add column if not exists removed_at timestamptz;
+alter table classes add column if not exists closed boolean not null default false;
 `;
 
 let ready = null;

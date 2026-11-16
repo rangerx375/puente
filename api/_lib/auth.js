@@ -85,7 +85,7 @@ async function currentUser(req, q) {
     const { rows } = await q(
       `select s.id, s.first, s.last, s.phone, s.sv, s.class_id, c.name as class_name, c.code as class_code
          from students s join classes c on c.id = s.class_id
-        where s.id = $1 and not c.archived`, [s.id]);
+        where s.id = $1 and not c.archived and s.removed_at is null`, [s.id]);
     const st = rows[0];
     return st && st.sv === s.v ? { role: "student", ...st } : null;
   }

@@ -13747,23 +13747,7 @@ window.PUENTE_BOOK = {
        "es": "ellos / ellas (personas o cosas)"
       },
       {
-       "en": "they'm",
-       "es": "ellos / ellas (personas o cosas)"
-      },
-      {
-       "en": "they's",
-       "es": "ellos / ellas (personas o cosas)"
-      },
-      {
        "en": "We",
-       "es": "nosotros / nosotras"
-      },
-      {
-       "en": "we'm",
-       "es": "nosotros / nosotras"
-      },
-      {
-       "en": "we's",
        "es": "nosotros / nosotras"
       },
       {
@@ -14524,14 +14508,6 @@ window.PUENTE_BOOK = {
       {
        "en": "He",
        "es": "él (un hombre o un niño)"
-      },
-      {
-       "en": "he'm",
-       "es": "él (un hombre o un niño)"
-      },
-      {
-       "en": "he're",
-       "es": "aquí"
       },
       {
        "en": "here",
@@ -16220,10 +16196,6 @@ window.PUENTE_BOOK = {
       },
       {
        "en": "am",
-       "es": "soy / estoy (solo con I)"
-      },
-      {
-       "en": "amn't",
        "es": "soy / estoy (solo con I)"
       },
       {
@@ -18749,7 +18721,7 @@ window.PUENTE_BOOK = {
        "es": "él (un hombre o un niño)"
       },
       {
-       "en": "he's",
+       "en": "He's",
        "es": "él es / él está (forma corta de he is)"
       },
       {
@@ -19611,10 +19583,6 @@ window.PUENTE_BOOK = {
        "es": "feliz, contento"
       },
       {
-       "en": "he",
-       "es": "él (un hombre o un niño)"
-      },
-      {
        "en": "here",
        "es": "aquí"
       },
@@ -19641,10 +19609,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
       },
       {
        "en": "late",
@@ -24704,10 +24668,6 @@ window.PUENTE_BOOK = {
       {
        "en": "today",
        "es": "hoy"
-      },
-      {
-       "en": "warm",
-       "es": "templado, calorcito agradable"
       },
       {
        "en": "We",
@@ -30766,10 +30726,6 @@ window.PUENTE_BOOK = {
        "es": "tú / usted / ustedes"
       },
       {
-       "en": "you're",
-       "es": "tú eres, tú estás, ustedes están (forma corta de you are)"
-      },
-      {
        "en": "yours",
        "es": "tus, tuses; sus, suses (de usted o de ustedes)"
       }
@@ -35535,10 +35491,6 @@ window.PUENTE_BOOK = {
        "es": "cuatro (4)"
       },
       {
-       "en": "fourteen",
-       "es": "catorce (14)"
-      },
-      {
        "en": "go",
        "es": "ir"
       },
@@ -35613,10 +35565,6 @@ window.PUENTE_BOOK = {
       {
        "en": "They",
        "es": "ellos / ellas (personas o cosas)"
-      },
-      {
-       "en": "thirteen",
-       "es": "trece (13)"
       },
       {
        "en": "three",
@@ -41890,19 +41838,11 @@ window.PUENTE_BOOK = {
        "es": "cocinar"
       },
       {
-       "en": "cooks",
-       "es": "cocinar"
-      },
-      {
        "en": "does",
        "es": "hace (he, she, it)"
       },
       {
        "en": "drive",
-       "es": "manejar"
-      },
-      {
-       "en": "drives",
        "es": "manejar"
       },
       {
@@ -41936,10 +41876,6 @@ window.PUENTE_BOOK = {
       {
        "en": "goes",
        "es": "va (he, she, it)"
-      },
-      {
-       "en": "has",
-       "es": "tiene (he, she, it)"
       },
       {
        "en": "have",
@@ -42058,10 +41994,6 @@ window.PUENTE_BOOK = {
        "es": "fumar"
       },
       {
-       "en": "smokes",
-       "es": "fumar"
-      },
-      {
        "en": "Spanish",
        "es": "español (idioma)"
       },
@@ -42099,10 +42031,6 @@ window.PUENTE_BOOK = {
       },
       {
        "en": "watch",
-       "es": "mirar, cuidar (a alguien)"
-      },
-      {
-       "en": "watches",
        "es": "mirar, cuidar (a alguien)"
       },
       {
@@ -42828,10 +42756,6 @@ window.PUENTE_BOOK = {
        "es": "de la mañana (de las 12 de la noche a las 12 del día)"
       },
       {
-       "en": "aren't",
-       "es": "no son / no están (forma corta de are not)"
-      },
-      {
        "en": "baby",
        "es": "bebé"
       },
@@ -42861,10 +42785,6 @@ window.PUENTE_BOOK = {
       },
       {
        "en": "drink",
-       "es": "tomar, beber"
-      },
-      {
-       "en": "drinks",
        "es": "tomar, beber"
       },
       {
@@ -43722,10 +43642,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Are",
        "es": "eres / es / somos / son / estás / estamos / están"
-      },
-      {
-       "en": "aren't",
-       "es": "no son / no están (forma corta de are not)"
       },
       {
        "en": "at",
@@ -44754,10 +44670,6 @@ window.PUENTE_BOOK = {
        "es": "perro"
       },
       {
-       "en": "don't",
-       "es": "no (forma corta de do not)"
-      },
-      {
        "en": "drink",
        "es": "tomar, beber"
       },
@@ -44812,10 +44724,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
       },
       {
        "en": "it",
@@ -45647,10 +45555,6 @@ window.PUENTE_BOOK = {
        "es": "eres / es / somos / son / estás / estamos / están"
       },
       {
-       "en": "aren't",
-       "es": "no son / no están (forma corta de are not)"
-      },
-      {
        "en": "at",
        "es": "a (las…) con la hora"
       },
@@ -45745,10 +45649,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
       },
       {
        "en": "kids",
@@ -45869,10 +45769,6 @@ window.PUENTE_BOOK = {
       {
        "en": "work",
        "es": "trabajar"
-      },
-      {
-       "en": "works",
-       "es": "trabaja"
       },
       {
        "en": "Yes",
@@ -53827,10 +53723,6 @@ window.PUENTE_BOOK = {
        "es": "es / está"
       },
       {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
-      },
-      {
        "en": "It's",
        "es": "su, sus (de una cosa o un animal)"
       },
@@ -54873,10 +54765,6 @@ window.PUENTE_BOOK = {
       {
        "en": "do",
        "es": "hacer"
-      },
-      {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
       },
       {
        "en": "don't",
@@ -58590,10 +58478,6 @@ window.PUENTE_BOOK = {
        "es": "hoy"
       },
       {
-       "en": "tomato",
-       "es": "tomate"
-      },
-      {
        "en": "tomatoes",
        "es": "tomates"
       },
@@ -61200,14 +61084,6 @@ window.PUENTE_BOOK = {
        "es": "cocinando"
       },
       {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (forma corta de do not)"
-      },
-      {
        "en": "drinking",
        "es": "bebiendo, tomando"
       },
@@ -62037,10 +61913,6 @@ window.PUENTE_BOOK = {
        "es": "de la mañana (de las 12 de la noche a las 12 del día)"
       },
       {
-       "en": "amn't",
-       "es": "de la mañana (de las 12 de la noche a las 12 del día)"
-      },
-      {
        "en": "Are",
        "es": "eres / es / somos / son / estás / estamos / están"
       },
@@ -62079,10 +61951,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Does",
        "es": "hace (he, she, it)"
-      },
-      {
-       "en": "don't",
-       "es": "no (forma corta de do not)"
       },
       {
        "en": "door",
@@ -75298,20 +75166,12 @@ window.PUENTE_BOOK = {
        "es": "allí / allá"
       },
       {
-       "en": "There're",
-       "es": "allí / allá"
-      },
-      {
        "en": "There's",
        "es": "hay (forma corta de there is)"
       },
       {
        "en": "They",
        "es": "ellos / ellas (personas o cosas)"
-      },
-      {
-       "en": "They're",
-       "es": "son / están (forma corta de they are)"
       },
       {
        "en": "three",
@@ -76090,14 +75950,6 @@ window.PUENTE_BOOK = {
        "es": "café"
       },
       {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (forma corta de do not)"
-      },
-      {
        "en": "downtown",
        "es": "el centro (de la ciudad)"
       },
@@ -76132,10 +75984,6 @@ window.PUENTE_BOOK = {
       {
        "en": "isn't",
        "es": "no es / no está (forma corta de is not)"
-      },
-      {
-       "en": "It",
-       "es": "eso / él / ella (una cosa o un animal)"
       },
       {
        "en": "laundromat",
@@ -77308,16 +77156,8 @@ window.PUENTE_BOOK = {
        "es": "allí / allá"
       },
       {
-       "en": "there's",
-       "es": "hay (forma corta de there is)"
-      },
-      {
        "en": "they",
        "es": "ellos / ellas (personas o cosas)"
-      },
-      {
-       "en": "they're",
-       "es": "son / están (forma corta de they are)"
       },
       {
        "en": "to",
@@ -80095,7 +79935,7 @@ window.PUENTE_BOOK = {
        "es": "esquina"
       },
       {
-       "en": "crossing",
+       "en": "Crossing",
        "es": "cruzar"
       },
       {
@@ -80157,10 +79997,6 @@ window.PUENTE_BOOK = {
       {
        "en": "on",
        "es": "en, sobre, encima de"
-      },
-      {
-       "en": "parks",
-       "es": "estacionar"
       },
       {
        "en": "please",
@@ -89567,10 +89403,6 @@ window.PUENTE_BOOK = {
        "es": "eres / es / somos / son / estás / estamos / están"
       },
       {
-       "en": "aren't",
-       "es": "no son / no están (forma corta de are not)"
-      },
-      {
        "en": "at",
        "es": "en (un punto o una dirección exacta)"
       },
@@ -89739,7 +89571,7 @@ window.PUENTE_BOOK = {
        "es": "nuevo / nueva"
       },
       {
-       "en": "next",
+       "en": "Next",
        "es": "después, a continuación"
       },
       {
@@ -89835,7 +89667,7 @@ window.PUENTE_BOOK = {
        "es": "allí / allá"
       },
       {
-       "en": "there's",
+       "en": "There's",
        "es": "hay (forma corta de there is)"
       },
       {
@@ -92630,10 +92462,6 @@ window.PUENTE_BOOK = {
        "es": "eres / es / somos / son / estás / estamos / están"
       },
       {
-       "en": "aren't",
-       "es": "no son / no están (forma corta de are not)"
-      },
-      {
        "en": "at",
        "es": "en (un punto o una dirección exacta)"
       },
@@ -92720,10 +92548,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
       },
       {
        "en": "it",
@@ -99436,14 +99260,6 @@ window.PUENTE_BOOK = {
        "es": "hace (he, she, it)"
       },
       {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "drink",
        "es": "bebida (también: beber)"
       },
@@ -100656,14 +100472,6 @@ window.PUENTE_BOOK = {
        "es": "hace (he, she, it)"
       },
       {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "drink",
        "es": "bebida (también: beber)"
       },
@@ -100878,10 +100686,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Were",
        "es": "fueron / eran / estuvieron / estaban (pasado de are)"
-      },
-      {
-       "en": "weren't",
-       "es": "no fueron / no estaban (were not)"
       },
       {
        "en": "wife",
@@ -104841,28 +104645,12 @@ window.PUENTE_BOOK = {
        "es": "bailar"
       },
       {
-       "en": "dances",
-       "es": "bailar"
-      },
-      {
-       "en": "dancing",
-       "es": "bailar"
-      },
-      {
        "en": "Do",
        "es": "hacer"
       },
       {
        "en": "Does",
        "es": "hace (he, she, it)"
-      },
-      {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
       },
       {
        "en": "drive",
@@ -104911,14 +104699,6 @@ window.PUENTE_BOOK = {
       {
        "en": "is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
-      },
-      {
-       "en": "it",
-       "es": "eso / él / ella (una cosa o un animal)"
       },
       {
        "en": "It's",
@@ -108756,10 +108536,6 @@ window.PUENTE_BOOK = {
        "es": "cerrado / cerrada"
       },
       {
-       "en": "Don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "downtown",
        "es": "el centro (de la ciudad)"
       },
@@ -108770,10 +108546,6 @@ window.PUENTE_BOOK = {
       {
        "en": "for",
        "es": "para, por"
-      },
-      {
-       "en": "give",
-       "es": "dar"
       },
       {
        "en": "Good",
@@ -108890,10 +108662,6 @@ window.PUENTE_BOOK = {
       {
        "en": "snowing",
        "es": "nevando"
-      },
-      {
-       "en": "sorry",
-       "es": "lo siento; apenado"
       },
       {
        "en": "Sunday",
@@ -109659,10 +109427,6 @@ window.PUENTE_BOOK = {
        "es": "hacer"
       },
       {
-       "en": "Don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "early",
        "es": "temprano"
       },
@@ -109693,10 +109457,6 @@ window.PUENTE_BOOK = {
       {
        "en": "fun",
        "es": "divertido"
-      },
-      {
-       "en": "give",
-       "es": "dar"
       },
       {
        "en": "go",
@@ -109741,10 +109501,6 @@ window.PUENTE_BOOK = {
       {
        "en": "I",
        "es": "yo (siempre con mayúscula)"
-      },
-      {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
       },
       {
        "en": "in",
@@ -109839,10 +109595,6 @@ window.PUENTE_BOOK = {
        "es": "hijo"
       },
       {
-       "en": "sorry",
-       "es": "lo siento; apenado"
-      },
-      {
        "en": "Sunday",
        "es": "domingo"
       },
@@ -109873,10 +109625,6 @@ window.PUENTE_BOOK = {
       {
        "en": "was",
        "es": "fue / era / estuvo / estaba (pasado de am e is)"
-      },
-      {
-       "en": "wasn't",
-       "es": "no fue / no estaba (was not)"
       },
       {
        "en": "watched",
@@ -114798,10 +114546,6 @@ window.PUENTE_BOOK = {
        "es": "hacer"
       },
       {
-       "en": "Don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "eat",
        "es": "comer"
       },
@@ -114854,10 +114598,6 @@ window.PUENTE_BOOK = {
        "es": "divertido"
       },
       {
-       "en": "give",
-       "es": "dar"
-      },
-      {
        "en": "go",
        "es": "ir, sigue, ve"
       },
@@ -114900,10 +114640,6 @@ window.PUENTE_BOOK = {
       {
        "en": "I",
        "es": "yo (siempre con mayúscula)"
-      },
-      {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
       },
       {
        "en": "in",
@@ -115042,10 +114778,6 @@ window.PUENTE_BOOK = {
        "es": "canción"
       },
       {
-       "en": "sorry",
-       "es": "lo siento; apenado"
-      },
-      {
        "en": "studied",
        "es": "estudié / estudió (de study)"
       },
@@ -115096,10 +114828,6 @@ window.PUENTE_BOOK = {
       {
        "en": "washed",
        "es": "lavar"
-      },
-      {
-       "en": "wasn't",
-       "es": "no fue / no estaba (was not)"
       },
       {
        "en": "watched",
@@ -116013,14 +115741,6 @@ window.PUENTE_BOOK = {
        "es": "hermoso / hermosa, precioso"
       },
       {
-       "en": "Bible",
-       "es": "Biblia"
-      },
-      {
-       "en": "big",
-       "es": "grande"
-      },
-      {
        "en": "bus",
        "es": "autobús, camión"
       },
@@ -116053,10 +115773,6 @@ window.PUENTE_BOOK = {
        "es": "bien"
       },
       {
-       "en": "from",
-       "es": "de (origen)"
-      },
-      {
        "en": "going",
        "es": "yendo (go + -ing)"
       },
@@ -116079,14 +115795,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Hi",
        "es": "hola (informal, con amigos)"
-      },
-      {
-       "en": "home",
-       "es": "casa, hogar"
-      },
-      {
-       "en": "Honduras",
-       "es": "Honduras"
       },
       {
        "en": "How",
@@ -116117,20 +115825,12 @@ window.PUENTE_BOOK = {
        "es": "su, sus (de una cosa o un animal)"
       },
       {
-       "en": "job",
-       "es": "trabajo, empleo"
-      },
-      {
        "en": "later",
        "es": "más tarde, luego"
       },
       {
        "en": "meet",
        "es": "conocer (a una persona)"
-      },
-      {
-       "en": "Mexico",
-       "es": "México"
       },
       {
        "en": "money",
@@ -116143,10 +115843,6 @@ window.PUENTE_BOOK = {
       {
        "en": "nice",
        "es": "simpático, amable, bonito"
-      },
-      {
-       "en": "No",
-       "es": "no (para responder)"
       },
       {
        "en": "not",
@@ -116183,10 +115879,6 @@ window.PUENTE_BOOK = {
       {
        "en": "small",
        "es": "pequeño / pequeña, chico"
-      },
-      {
-       "en": "store",
-       "es": "tienda"
       },
       {
        "en": "Street",
@@ -116941,10 +116633,6 @@ window.PUENTE_BOOK = {
        "es": "eres / es / somos / son / estás / estamos / están"
       },
       {
-       "en": "aren't",
-       "es": "no son / no están (forma corta de are not)"
-      },
-      {
        "en": "bag",
        "es": "bolsa"
       },
@@ -116971,14 +116659,6 @@ window.PUENTE_BOOK = {
       {
        "en": "cups",
        "es": "tazas"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
       },
       {
        "en": "in",
@@ -117805,10 +117485,6 @@ window.PUENTE_BOOK = {
        "es": "vasos; lentes"
       },
       {
-       "en": "he's",
-       "es": "él es / él está (forma corta de he is)"
-      },
-      {
        "en": "her",
        "es": "su, sus (de ella)"
       },
@@ -117867,10 +117543,6 @@ window.PUENTE_BOOK = {
       {
        "en": "she",
        "es": "ella (una mujer o una niña)"
-      },
-      {
-       "en": "she's",
-       "es": "ella es / ella está (forma corta de she is)"
       },
       {
        "en": "small",
@@ -120894,10 +120566,6 @@ window.PUENTE_BOOK = {
        "es": "este / esta (una cosa, cerca)"
       },
       {
-       "en": "This's",
-       "es": "este / esta (una cosa, cerca)"
-      },
-      {
        "en": "those",
        "es": "esos / esas / aquellos / aquellas (varias cosas, lejos)"
       },
@@ -122807,10 +122475,6 @@ window.PUENTE_BOOK = {
        "es": "hacer"
       },
       {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "five",
        "es": "cinco (5)"
       },
@@ -123685,10 +123349,6 @@ window.PUENTE_BOOK = {
        "es": "en (un punto o una dirección exacta)"
       },
       {
-       "en": "Because",
-       "es": "porque (para responder)"
-      },
-      {
        "en": "bring",
        "es": "traer (bringing = trayendo)"
       },
@@ -123783,10 +123443,6 @@ window.PUENTE_BOOK = {
       {
        "en": "I",
        "es": "yo (siempre con mayúscula)"
-      },
-      {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
       },
       {
        "en": "in",
@@ -123919,10 +123575,6 @@ window.PUENTE_BOOK = {
       {
        "en": "the",
        "es": "el, la, los, las"
-      },
-      {
-       "en": "tired",
-       "es": "cansado / cansada"
       },
       {
        "en": "to",
@@ -127975,10 +127627,6 @@ window.PUENTE_BOOK = {
        "es": "cena"
       },
       {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
        "en": "don't",
        "es": "no (para prohibir)"
       },
@@ -128093,10 +127741,6 @@ window.PUENTE_BOOK = {
       {
        "en": "is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
       },
       {
        "en": "It",
@@ -129111,10 +128755,6 @@ window.PUENTE_BOOK = {
        "es": "llamar"
       },
       {
-       "en": "can't",
-       "es": "no puede / no sabe (forma corta)"
-      },
-      {
        "en": "church",
        "es": "iglesia"
       },
@@ -129231,10 +128871,6 @@ window.PUENTE_BOOK = {
        "es": "gustar (I like = me gusta)"
       },
       {
-       "en": "love",
-       "es": "encantar / amar"
-      },
-      {
        "en": "many",
        "es": "muchos, muchas"
       },
@@ -129305,10 +128941,6 @@ window.PUENTE_BOOK = {
       {
        "en": "service",
        "es": "culto (servicio de la iglesia)"
-      },
-      {
-       "en": "Sorry",
-       "es": "lo siento; apenado"
       },
       {
        "en": "sounds",
@@ -135350,14 +134982,6 @@ window.PUENTE_BOOK = {
        "es": "hace (he, she, it)"
       },
       {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "eating",
        "es": "comiendo"
       },
@@ -135408,10 +135032,6 @@ window.PUENTE_BOOK = {
       {
        "en": "he",
        "es": "él (un hombre o un niño)"
-      },
-      {
-       "en": "he's",
-       "es": "él es / él está (forma corta de he is)"
       },
       {
        "en": "Hello",
@@ -138651,23 +138271,11 @@ window.PUENTE_BOOK = {
        "es": "médico, doctor"
       },
       {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "drink",
        "es": "bebida (también: beber)"
       },
       {
        "en": "drive",
-       "es": "manejar"
-      },
-      {
-       "en": "drives",
        "es": "manejar"
       },
       {
@@ -138677,10 +138285,6 @@ window.PUENTE_BOOK = {
       {
        "en": "eat",
        "es": "comer"
-      },
-      {
-       "en": "eats",
-       "es": "come"
       },
       {
        "en": "fever",
@@ -138861,10 +138465,6 @@ window.PUENTE_BOOK = {
       {
        "en": "work",
        "es": "trabajar"
-      },
-      {
-       "en": "works",
-       "es": "trabaja"
       },
       {
        "en": "Yes",
@@ -139677,10 +139277,6 @@ window.PUENTE_BOOK = {
        "es": "eres / es / somos / son / estás / estamos / están"
       },
       {
-       "en": "aren't",
-       "es": "no son / no están (forma corta de are not)"
-      },
-      {
        "en": "at",
        "es": "arroba (@) en un correo"
       },
@@ -139715,10 +139311,6 @@ window.PUENTE_BOOK = {
       {
        "en": "doctor",
        "es": "médico, doctor"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
       },
       {
        "en": "drink",
@@ -140841,10 +140433,6 @@ window.PUENTE_BOOK = {
       {
        "en": "needs",
        "es": "necesitar"
-      },
-      {
-       "en": "No",
-       "es": "no (para responder)"
       },
       {
        "en": "of",
@@ -147339,7 +146927,7 @@ window.PUENTE_BOOK = {
        "es": "postre"
       },
       {
-       "en": "don't",
+       "en": "Don't",
        "es": "no (para prohibir)"
       },
       {
@@ -147569,10 +147157,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Who",
        "es": "quién / a quién"
-      },
-      {
-       "en": "willn't",
-       "es": "(marca el futuro: -ré, -rás, -rá)"
       },
       {
        "en": "wills",
@@ -148431,10 +148015,6 @@ window.PUENTE_BOOK = {
        "es": "comprar"
       },
       {
-       "en": "buys",
-       "es": "comprar"
-      },
-      {
        "en": "chicken",
        "es": "pollo"
       },
@@ -148449,10 +148029,6 @@ window.PUENTE_BOOK = {
       {
        "en": "cook",
        "es": "cocinar"
-      },
-      {
-       "en": "cooking",
-       "es": "cocinando"
       },
       {
        "en": "day",
@@ -149569,14 +149145,6 @@ window.PUENTE_BOOK = {
       {
        "en": "does",
        "es": "hace (he, she, it)"
-      },
-      {
-       "en": "doesn't",
-       "es": "no (forma corta de does not)"
-      },
-      {
-       "en": "don't",
-       "es": "no (para prohibir)"
       },
       {
        "en": "dress",
@@ -150737,10 +150305,6 @@ window.PUENTE_BOOK = {
       {
        "en": "large",
        "es": "grande (talla L)"
-      },
-      {
-       "en": "look",
-       "es": "verse, parecer (por lo que ves)"
       },
       {
        "en": "looking",
@@ -160946,10 +160510,6 @@ window.PUENTE_BOOK = {
        "es": "pensar, creer (What do you think? = ¿Qué piensas?)"
       },
       {
-       "en": "thinking",
-       "es": "pensar, creer (What do you think? = ¿Qué piensas?)"
-      },
-      {
        "en": "this",
        "es": "este / esta (una cosa, cerca)"
       },
@@ -160988,10 +160548,6 @@ window.PUENTE_BOOK = {
       {
        "en": "with",
        "es": "con"
-      },
-      {
-       "en": "Yes",
-       "es": "sí"
       },
       {
        "en": "you",
@@ -171137,10 +170693,6 @@ window.PUENTE_BOOK = {
        "es": "yo (siempre con mayúscula)"
       },
       {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
-      },
-      {
        "en": "in",
        "es": "en (dentro de un lugar)"
       },
@@ -172343,10 +171895,6 @@ window.PUENTE_BOOK = {
       {
        "en": "I",
        "es": "yo (siempre con mayúscula)"
-      },
-      {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
       },
       {
        "en": "in",
@@ -175884,10 +175432,6 @@ window.PUENTE_BOOK = {
        "es": "yo (siempre con mayúscula)"
       },
       {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
-      },
-      {
        "en": "in",
        "es": "en, dentro de"
       },
@@ -175986,10 +175530,6 @@ window.PUENTE_BOOK = {
       {
        "en": "rice",
        "es": "arroz"
-      },
-      {
-       "en": "rices",
-       "es": "arroces"
       },
       {
        "en": "She",
@@ -179433,10 +178973,6 @@ window.PUENTE_BOOK = {
        "es": "vasos; lentes"
       },
       {
-       "en": "happy",
-       "es": "feliz, contento"
-      },
-      {
        "en": "He",
        "es": "él (un hombre o un niño)"
       },
@@ -179543,10 +179079,6 @@ window.PUENTE_BOOK = {
       {
        "en": "rakes",
        "es": "rastrillos (repaso)"
-      },
-      {
-       "en": "ready",
-       "es": "listo / lista"
       },
       {
        "en": "resting",
@@ -181783,10 +181315,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
       },
       {
        "en": "kitchen",
@@ -186664,10 +186192,6 @@ window.PUENTE_BOOK = {
       {
        "en": "We",
        "es": "nosotros / nosotras"
-      },
-      {
-       "en": "We're",
-       "es": "somos / estamos (forma corta de we are)"
       },
       {
        "en": "with",
@@ -194921,10 +194445,6 @@ window.PUENTE_BOOK = {
        "es": "tener"
       },
       {
-       "en": "haven't",
-       "es": "tener"
-      },
-      {
        "en": "here",
        "es": "aquí"
       },
@@ -194975,10 +194495,6 @@ window.PUENTE_BOOK = {
       {
        "en": "is",
        "es": "es / está"
-      },
-      {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
       },
       {
        "en": "It",
@@ -196987,10 +196503,6 @@ window.PUENTE_BOOK = {
        "es": "es / está"
       },
       {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
-      },
-      {
        "en": "It",
        "es": "lo, la (una cosa)"
       },
@@ -197125,10 +196637,6 @@ window.PUENTE_BOOK = {
       {
        "en": "now",
        "es": "ahora"
-      },
-      {
-       "en": "o'clock",
-       "es": "en punto (solo para la hora exacta)"
       },
       {
        "en": "of",
@@ -209494,7 +209002,7 @@ window.PUENTE_BOOK = {
        "es": "no (forma corta de does not)"
       },
       {
-       "en": "don't",
+       "en": "Don't",
        "es": "no (para prohibir)"
       },
       {
@@ -222659,10 +222167,6 @@ window.PUENTE_BOOK = {
        "es": "cerca"
       },
       {
-       "en": "closed",
-       "es": "cerrado"
-      },
-      {
        "en": "colorful",
        "es": "colorido"
       },
@@ -224895,10 +224399,6 @@ window.PUENTE_BOOK = {
       {
        "en": "day",
        "es": "día"
-      },
-      {
-       "en": "deal",
-       "es": "trato"
       },
       {
        "en": "did",
@@ -231824,10 +231324,6 @@ window.PUENTE_BOOK = {
        "es": "autor, autora"
       },
       {
-       "en": "bad",
-       "es": "fuerte, malo (un dolor fuerte)"
-      },
-      {
        "en": "be",
        "es": "ser, estar (forma base de am / is / are)"
       },
@@ -234007,10 +233503,6 @@ window.PUENTE_BOOK = {
        "es": "hacer"
       },
       {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "dorm",
        "es": "residencia estudiantil"
       },
@@ -234115,7 +233607,7 @@ window.PUENTE_BOOK = {
        "es": "dorado, dorada"
       },
       {
-       "en": "gonna",
+       "en": "Gonna",
        "es": "voy a (muy informal, going to)"
       },
       {
@@ -234179,10 +233671,6 @@ window.PUENTE_BOOK = {
        "es": "cédula, identificación"
       },
       {
-       "en": "I'm",
-       "es": "soy / estoy (forma corta de I am)"
-      },
-      {
        "en": "important",
        "es": "importante"
       },
@@ -234205,10 +233693,6 @@ window.PUENTE_BOOK = {
       {
        "en": "key",
        "es": "llave"
-      },
-      {
-       "en": "kids",
-       "es": "niños, chamacos (informal)"
       },
       {
        "en": "kind",
@@ -234237,10 +233721,6 @@ window.PUENTE_BOOK = {
       {
        "en": "longer",
        "es": "más largo"
-      },
-      {
-       "en": "Lots",
-       "es": "muchos (informal)"
       },
       {
        "en": "Many",
@@ -248978,10 +248458,6 @@ window.PUENTE_BOOK = {
        "es": "examen"
       },
       {
-       "en": "expired",
-       "es": "vencido"
-      },
-      {
        "en": "explain",
        "es": "explicar"
       },
@@ -257985,10 +257461,6 @@ window.PUENTE_BOOK = {
        "es": "dar"
       },
       {
-       "en": "go",
-       "es": "ir, sigue, ve"
-      },
-      {
        "en": "Good",
        "es": "bueno"
       },
@@ -258495,10 +257967,6 @@ window.PUENTE_BOOK = {
       {
        "en": "water",
        "es": "agua"
-      },
-      {
-       "en": "waterfall",
-       "es": "cascada, chorro"
       },
       {
        "en": "waterfalls",
@@ -259988,10 +259456,6 @@ window.PUENTE_BOOK = {
       {
        "en": "noise",
        "es": "ruido"
-      },
-      {
-       "en": "noisy",
-       "es": "ruidoso"
       },
       {
        "en": "not",
@@ -261862,10 +261326,6 @@ window.PUENTE_BOOK = {
       {
        "en": "jacket",
        "es": "chaqueta, chamarra"
-      },
-      {
-       "en": "job",
-       "es": "trabajo, empleo"
       },
       {
        "en": "jubilado",
@@ -270736,10 +270196,6 @@ window.PUENTE_BOOK = {
        "es": "en (con transporte: by bus = en autobús)"
       },
       {
-       "en": "bye",
-       "es": "chao, adiós (informal)"
-      },
-      {
        "en": "cabinet",
        "es": "archivador, gabinete"
       },
@@ -270824,10 +270280,6 @@ window.PUENTE_BOOK = {
        "es": "valor, valentía"
       },
       {
-       "en": "cry",
-       "es": "llorar"
-      },
-      {
        "en": "danger",
        "es": "peligro"
       },
@@ -270842,10 +270294,6 @@ window.PUENTE_BOOK = {
       {
        "en": "did",
        "es": "hice / hizo (de do)"
-      },
-      {
-       "en": "didn't",
-       "es": "no (en pasado, delante de un verbo)"
       },
       {
        "en": "died",
@@ -271224,10 +270672,6 @@ window.PUENTE_BOOK = {
        "es": "no (para responder)"
       },
       {
-       "en": "normal",
-       "es": "normal"
-      },
-      {
        "en": "not",
        "es": "no (en una oración)"
       },
@@ -271302,10 +270746,6 @@ window.PUENTE_BOOK = {
       {
        "en": "psychiatrist",
        "es": "psiquiatra"
-      },
-      {
-       "en": "question",
-       "es": "pregunta"
       },
       {
        "en": "questions",
@@ -271580,20 +271020,12 @@ window.PUENTE_BOOK = {
        "es": "qué / cuál"
       },
       {
-       "en": "What's",
-       "es": "qué / cuál"
-      },
-      {
        "en": "When",
        "es": "cuándo"
       },
       {
        "en": "Who",
        "es": "quién / a quién"
-      },
-      {
-       "en": "Why",
-       "es": "por qué (para preguntar)"
       },
       {
        "en": "will",
@@ -273022,10 +272454,6 @@ window.PUENTE_BOOK = {
        "es": "hice / hizo (de do)"
       },
       {
-       "en": "didn't",
-       "es": "no (en pasado, delante de un verbo)"
-      },
-      {
        "en": "divorce",
        "es": "divorcio; divorciarse"
       },
@@ -273476,10 +272904,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Who",
        "es": "quién / a quién"
-      },
-      {
-       "en": "Why",
-       "es": "por qué (para preguntar)"
       },
       {
        "en": "will",
@@ -274679,10 +274103,6 @@ window.PUENTE_BOOK = {
        "es": "disponible"
       },
       {
-       "en": "back",
-       "es": "espalda"
-      },
-      {
        "en": "be",
        "es": "ser, estar (forma base de am / is / are)"
       },
@@ -274787,10 +274207,6 @@ window.PUENTE_BOOK = {
        "es": "ciudad"
       },
       {
-       "en": "come",
-       "es": "venir"
-      },
-      {
        "en": "comes",
        "es": "venir"
       },
@@ -274849,10 +274265,6 @@ window.PUENTE_BOOK = {
       {
        "en": "did",
        "es": "hice / hizo (de do)"
-      },
-      {
-       "en": "didn't",
-       "es": "no (en pasado, delante de un verbo)"
       },
       {
        "en": "Do",
@@ -275161,10 +274573,6 @@ window.PUENTE_BOOK = {
       {
        "en": "law",
        "es": "ley"
-      },
-      {
-       "en": "leave",
-       "es": "salir, irse"
       },
       {
        "en": "Let's",
@@ -275665,10 +275073,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Thursday",
        "es": "jueves"
-      },
-      {
-       "en": "Time's",
-       "es": "es / está"
       },
       {
        "en": "tired",
@@ -277558,10 +276962,6 @@ window.PUENTE_BOOK = {
       {
        "en": "pregnant",
        "es": "embarazada"
-      },
-      {
-       "en": "preoccupied",
-       "es": "absorto, distraído (normalmente no es «preocupado»)"
       },
       {
        "en": "previous",
@@ -287549,10 +286949,6 @@ window.PUENTE_BOOK = {
        "es": "error"
       },
       {
-       "en": "Monday",
-       "es": "lunes"
-      },
-      {
        "en": "money",
        "es": "dinero"
       },
@@ -287587,10 +286983,6 @@ window.PUENTE_BOOK = {
       {
        "en": "nights",
        "es": "noches"
-      },
-      {
-       "en": "No",
-       "es": "no (para responder)"
       },
       {
        "en": "of",
@@ -296061,10 +295453,6 @@ window.PUENTE_BOOK = {
        "es": "es / está"
       },
       {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
-      },
-      {
        "en": "it",
        "es": "lo, la (una cosa)"
       },
@@ -300567,10 +299955,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Yes",
        "es": "sí"
-      },
-      {
-       "en": "yesterday",
-       "es": "ayer"
       },
       {
        "en": "yet",
@@ -310269,10 +309653,6 @@ window.PUENTE_BOOK = {
        "es": "es / está"
       },
       {
-       "en": "isn't",
-       "es": "no es / no está (forma corta de is not)"
-      },
-      {
        "en": "It",
        "es": "lo, la (una cosa)"
       },
@@ -310455,10 +309835,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Spanish",
        "es": "español (el idioma)"
-      },
-      {
-       "en": "speaks",
-       "es": "habla"
       },
       {
        "en": "springs",
@@ -312057,10 +311433,6 @@ window.PUENTE_BOOK = {
        "es": "largo (how long = cuánto tiempo)"
       },
       {
-       "en": "lost",
-       "es": "perdido / perdida"
-      },
-      {
        "en": "love",
        "es": "encantar / amar"
       },
@@ -312143,10 +311515,6 @@ window.PUENTE_BOOK = {
       {
        "en": "No",
        "es": "no (para responder)"
-      },
-      {
-       "en": "not",
-       "es": "no (en una oración)"
       },
       {
        "en": "o'clock",
@@ -313627,10 +312995,6 @@ window.PUENTE_BOOK = {
        "es": "estar de acuerdo"
       },
       {
-       "en": "agreed",
-       "es": "estar de acuerdo"
-      },
-      {
        "en": "agreeing",
        "es": "estar de acuerdo"
       },
@@ -313877,10 +313241,6 @@ window.PUENTE_BOOK = {
       {
        "en": "dish",
        "es": "plato (de la cocina), traste"
-      },
-      {
-       "en": "doing",
-       "es": "haciendo (do + -ing)"
       },
       {
        "en": "don't",
@@ -314153,10 +313513,6 @@ window.PUENTE_BOOK = {
       {
        "en": "make",
        "es": "hacer"
-      },
-      {
-       "en": "making",
-       "es": "haciendo, preparando"
       },
       {
        "en": "Many",
@@ -322416,10 +321772,6 @@ window.PUENTE_BOOK = {
        "es": "leí / leyó (de read)"
       },
       {
-       "en": "reading",
-       "es": "lectura"
-      },
-      {
        "en": "repeat",
        "es": "repetir"
       },
@@ -324076,10 +323428,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Hi",
        "es": "hola"
-      },
-      {
-       "en": "him",
-       "es": "lo, le, a él"
       },
       {
        "en": "how",
@@ -333181,10 +332529,6 @@ window.PUENTE_BOOK = {
        "es": "papa"
       },
       {
-       "en": "potatoes",
-       "es": "papas"
-      },
-      {
        "en": "pound",
        "es": "libra"
       },
@@ -336583,10 +335927,6 @@ window.PUENTE_BOOK = {
        "es": "caro"
       },
       {
-       "en": "expired",
-       "es": "vencido"
-      },
-      {
        "en": "explain",
        "es": "explicar"
       },
@@ -336827,10 +336167,6 @@ window.PUENTE_BOOK = {
        "es": "no (para responder)"
       },
       {
-       "en": "not",
-       "es": "no (en una oración)"
-      },
-      {
        "en": "Of",
        "es": "de"
       },
@@ -336939,16 +336275,8 @@ window.PUENTE_BOOK = {
        "es": "recibo, factura"
       },
       {
-       "en": "restaurant",
-       "es": "restaurante"
-      },
-      {
        "en": "restaurants",
        "es": "restaurantes"
-      },
-      {
-       "en": "rice",
-       "es": "arroz"
       },
       {
        "en": "root",
@@ -338464,10 +337792,6 @@ window.PUENTE_BOOK = {
       {
        "en": "can",
        "es": "lata"
-      },
-      {
-       "en": "can't",
-       "es": "no puede / no sabe (forma corta)"
       },
       {
        "en": "car",
@@ -345559,10 +344883,6 @@ window.PUENTE_BOOK = {
        "es": "ese / esa / aquel / aquella (una cosa, lejos)"
       },
       {
-       "en": "That's",
-       "es": "ese es / esa es / eso es (that is)"
-      },
-      {
        "en": "the",
        "es": "el, la, los, las"
       },
@@ -350742,10 +350062,6 @@ window.PUENTE_BOOK = {
       {
        "en": "extra",
        "es": "adicional, de más"
-      },
-      {
-       "en": "feet",
-       "es": "pies"
       },
       {
        "en": "first",
@@ -362140,14 +361456,6 @@ window.PUENTE_BOOK = {
        "es": "orquídea"
       },
       {
-       "en": "orchids",
-       "es": "orquídeas"
-      },
-      {
-       "en": "organic",
-       "es": "orgánico"
-      },
-      {
        "en": "other",
        "es": "otro, otra, otros"
       },
@@ -370421,10 +369729,6 @@ window.PUENTE_BOOK = {
        "es": "dólares"
       },
       {
-       "en": "don't",
-       "es": "no (para prohibir)"
-      },
-      {
        "en": "drink",
        "es": "bebida (también: beber)"
       },
@@ -372556,10 +371860,6 @@ window.PUENTE_BOOK = {
        "es": "suave, que no pica"
       },
       {
-       "en": "milds",
-       "es": "suaves, que no pica"
-      },
-      {
        "en": "mistake",
        "es": "error"
       },
@@ -372570,10 +371870,6 @@ window.PUENTE_BOOK = {
       {
        "en": "music",
        "es": "música"
-      },
-      {
-       "en": "my",
-       "es": "mi, mis"
       },
       {
        "en": "napkins",
@@ -372634,10 +371930,6 @@ window.PUENTE_BOOK = {
       {
        "en": "please",
        "es": "por favor"
-      },
-      {
-       "en": "problem",
-       "es": "problema"
       },
       {
        "en": "really",
@@ -374744,10 +374036,6 @@ window.PUENTE_BOOK = {
        "es": "sopa"
       },
       {
-       "en": "sour",
-       "es": "ácido, agrio"
-      },
-      {
        "en": "spicy",
        "es": "picante"
       },
@@ -376768,10 +376056,6 @@ window.PUENTE_BOOK = {
       {
        "en": "so",
        "es": "así que, por eso (resultado)"
-      },
-      {
-       "en": "soap",
-       "es": "jabón"
       },
       {
        "en": "something",
@@ -388706,10 +387990,6 @@ window.PUENTE_BOOK = {
        "es": "yo (siempre con mayúscula)"
       },
       {
-       "en": "I'll",
-       "es": "yo + will (forma corta de I will)"
-      },
-      {
        "en": "I'm",
        "es": "soy / estoy (forma corta de I am)"
       },
@@ -389016,10 +388296,6 @@ window.PUENTE_BOOK = {
       {
        "en": "Should",
        "es": "debería, deberías (consejo)"
-      },
-      {
-       "en": "Show",
-       "es": "mostrar, enseñar"
       },
       {
        "en": "sign",

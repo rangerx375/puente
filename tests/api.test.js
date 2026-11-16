@@ -292,6 +292,36 @@ test("archived classes stop accepting logins; teacher can delete a student", asy
   assert.equal((await teacher.del(`teacher/students/${id}`)).status, 200);
 });
 
+test("a removed student is signed out, can't sign back in, and leaves the roster with records kept; a closed class takes no new students", async () => {
+  const cy = client();
+  assert.equal((await cy.post("student/login", { code, first: "Cy", last: "Oro", phone: "3045550009", pin: "2222" })).status, 200);
+  let ov = await teacher.get("teacher/overview");
+  const id = ov.data.roster.find((s) => s.first === "Cy").id;
+  assert.equal((await teacher.put(`teacher/students/${id}/removed`, { removed: true })).status, 200);
+  assert.equal((await cy.get("me")).data.role, null, "signed out");
+  const back = await client().post("student/login", { code, first: "Cy", last: "Oro", pin: "2222" });
+  assert.equal(back.status, 403);
+  assert.match(back.data.error, /Miss Connie/);
+  ov = await teacher.get("teacher/overview");
+  assert.ok(!ov.data.roster.some((s) => s.id === id));
+  assert.ok(ov.data.removed.some((s) => s.id === id), "kept, listed as removed");
+  assert.equal((await teacher.put(`teacher/students/${id}/removed`, { removed: false })).status, 200);
+  assert.equal((await client().post("student/login", { code, first: "Cy", last: "Oro", pin: "2222" })).status, 200, "let back in");
+  assert.equal((await teacher.put(`teacher/classes/${classId}/closed`, { closed: true })).status, 200);
+  assert.equal((await client().post("student/login", { code, first: "Dee", last: "New", phone: "3045550010", pin: "3333" })).status, 403);
+  assert.equal((await client().post("student/login", { code, first: "Cy", last: "Oro", pin: "2222" })).status, 200, "existing students still sign in");
+  await teacher.put(`teacher/classes/${classId}/closed`, { closed: false });
+});
+
+test("a contraction and its full form are both right", () => {
+  const it = { answers: ["I'm from Mexico."] };
+  for (const a of ["I am from Mexico", "I'm from Mexico", "Im from Mexico"]) assert.ok(grading.mark(it, a).ok, a);
+  assert.ok(grading.mark({ answers: ["They are at home."] }, "They're at home").ok);
+  assert.ok(grading.mark({ answers: ["What is your name?"] }, "What's your name?").ok);
+  assert.ok(grading.mark({ answers: ["She is not here."] }, "She isn't here").ok);
+  assert.ok(!grading.mark({ answers: ["She is here."] }, "She isn't here").ok);
+});
+
 test("announcements: the teacher posts, students see them, the teacher removes them", async () => {
   const a = await teacher.post("teacher/announcements", { classId, body: "No hay clase el martes." });
   assert.equal(a.status, 200);

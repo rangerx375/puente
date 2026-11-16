@@ -149,8 +149,11 @@ function englishOf(L, opts = {}) {
     if (kind === "fill") { push(where, it.before?.replace(/\([^)]*\)/g, "")); push(where, it.after?.replace(/\([^)]*\)/g, "")); (it.answers || []).forEach((a) => push(where, a)); }
     if (kind === "translate") (it.answers || []).forEach((a) => push(where, a));
     if (kind === "order") push(where, it.answer);
-    // choose options are often Spanish words; they go in the word list but aren't policed
-    if (kind === "choose" && !opts.strict) (it.options || []).forEach((o) => { if (looksEnglish(o)) push(where, o); });
+    // choose options are often Spanish words; they go in the word list but aren't policed.
+    // A wrong option with an apostrophe is a made-up form (they'm, he're, we's) and must never show as vocabulary.
+    if (kind === "choose" && !opts.strict) (it.options || []).forEach((o, i) => {
+      if (looksEnglish(o) && (i === it.answer || !/['’]/.test(o))) push(where, o);
+    });
   };
   (L.pages || []).forEach((p, pi) => {
     const w = `page ${pi + 1} (${p.type})`;

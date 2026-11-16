@@ -123,13 +123,17 @@ async function studentLogin(q, body, res) {
   if (phoneRaw && !phone) fail(400, "El número de WhatsApp no parece correcto. Escribe tu número como lo marcas en Panamá (por ejemplo 6123 4567).");
   // Students no longer type a class code (too many were locked out by it). A code that matches an
   // open class is still honored; otherwise the student goes to the oldest open class.
-  let { rows: cls } = code ? await q(`select id from classes where code = $1 and not archived`, [code]) : { rows: [] };
-  if (!cls[0]) ({ rows: cls } = await q(`select id from classes where not archived order by id limit 1`));
+  let { rows: cls } = code ? await q(`select id, closed from classes where code = $1 and not archived`, [code]) : { rows: [] };
+  if (!cls[0]) ({ rows: cls } = await q(`select id, closed from classes where not archived order by id limit 1`));
   if (!cls[0]) fail(404, "No hay ninguna clase abierta. Avisa al profesor.");
   const key = nameKey(first, last);
   let { rows } = await q(`select * from students where class_id = $1 and name_key = $2`, [cls[0].id, key]);
   let st = rows[0];
+  // Removed students keep their records but can't sign in again unless the teacher lets them back (Connie, 2026-11-16).
+  if (st?.removed_at) fail(403, "Ya no estás inscrito en esta clase. Si crees que es un error, habla con Miss Connie.");
   if (!st) {
+    // The class is closed to new students unless the teacher opens it (Connie, 2026-11-16).
+    if (cls[0].closed) fail(403, "No encontramos ese nombre en la clase, y la clase ya no acepta alumnos nuevos. Si ya tienes cuenta, escribe tu nombre y apellidos exactamente como la primera vez. Si crees que es un error, habla con Miss Connie.");
     if (!phone) fail(400, "No encontramos ese nombre en la clase. Si ya tienes cuenta, escribe tu nombre y apellidos exactamente como la primera vez. Si eres nuevo, escribe tu número de WhatsApp para registrarte.");
     // A returning student who types their name a little differently would otherwise get a new,
     // empty account and think their progress was erased. Their WhatsApp number gives them away.
@@ -461,7 +465,7 @@ const sumTime = (state) => Object.values(isObj(state?.timeMs) ? state.timeMs : {
 
 async function classRoster(q, classId) {
   const [{ rows: students }, { rows: attempts }, { rows: responses }, { rows: sets }, { rows: homework }, cx] = await Promise.all([
-    q(`select s.id, s.first, s.last, s.phone, s.graded, s.last_seen, s.created_at, p.state from students s left join progress p on p.student_id = s.id
+    q(`select s.id, s.first, s.last, s.phone, s.graded, s.last_seen, s.created_at, s.removed_at, p.state from students s left join progress p on p.student_id = s.id
         where s.class_id = $1 order by lower(s.last), lower(s.first)`, [classId]),
     q(`select a.student_id, a.source, a.lesson_id, a.percent, a.n_right, a.n_total, a.passed, a.created_at
          from attempts a join students s on s.id = a.student_id
@@ -478,7 +482,9 @@ async function classRoster(q, classId) {
   const att = group(attempts);
   const resp = group(responses);
   const due = homework.map((h) => h.due).filter(Boolean).sort()[0] || null;
-  const roster = students.map((s) => {
+  // Removed students stay in the database (records and grades kept) but leave the roster and every report.
+  const removed = students.filter((s) => s.removed_at).map((s) => ({ id: s.id, first: s.first, last: s.last, removedAt: s.removed_at }));
+  const roster = students.filter((s) => !s.removed_at).map((s) => {
     const scores = L.scoresFromAttempts(att[s.id] || []);
     const tracked = L.tracking(resp[s.id] || []);
     const passed = homework.filter((h) => L.lessonCleared(scores, h.lesson_id)).map((h) => h.lesson_id);
@@ -503,7 +509,7 @@ async function classRoster(q, classId) {
       scores
     };
   });
-  return { roster, homework, classExams: cx.exams.map((e) => ({
+  return { roster, removed, homework, classExams: cx.exams.map((e) => ({
     id: e.id, date: e.exam_date, name: e.name, kind: e.kind,
     count: cx.scores.filter((x) => x.exam_id === e.id).length
   })) };
@@ -511,14 +517,14 @@ async function classRoster(q, classId) {
 
 async function teacherOverview(q, user, classId) {
   const { rows: classes } = await q(
-    `select c.id, c.name, c.code, c.archived, count(s.id)::int as students
-       from classes c left join students s on s.class_id = c.id
+    `select c.id, c.name, c.code, c.archived, c.closed, count(s.id)::int as students
+       from classes c left join students s on s.class_id = c.id and s.removed_at is null
       where c.teacher_id = $1 group by c.id order by c.archived, c.id`, [user.id]);
   const active = classes.filter((c) => !c.archived);
   const pick = classes.find((c) => c.id === classId) || active[0] || classes[0];
   if (!pick) return { classes, cls: null, roster: [], homework: [], announcements: [] };
-  const [{ roster, homework, classExams: exams }, announcements] = await Promise.all([classRoster(q, pick.id), announcementsFor(q, pick.id, 20)]);
-  return { teacher: { name: user.name }, classes, cls: pick, roster, homework, classExams: exams, announcements };
+  const [{ roster, removed, homework, classExams: exams }, announcements] = await Promise.all([classRoster(q, pick.id), announcementsFor(q, pick.id, 20)]);
+  return { teacher: { name: user.name }, classes, cls: pick, roster, removed, homework, classExams: exams, announcements };
 }
 
 async function studentDetail(q, teacherId, studentId) {
@@ -561,7 +567,7 @@ async function importScores(q, tx, user, body) {
   const cls = await ownClass(q, user.id, int(body.classId));
   const parsed = G.parseTable(body.text);
   if (parsed.errors.length) return { ok: false, errors: parsed.errors };
-  const { rows: students } = await q(`select id, first, last, graded from students where class_id = $1`, [cls.id]);
+  const { rows: students } = await q(`select id, first, last, graded from students where class_id = $1 and removed_at is null`, [cls.id]);
   const matched = G.matchStudents(parsed.rows, students);
   const { rows: known } = await q(`select id, key from class_exams where class_id = $1`, [cls.id]);
   const examIds = parsed.exams.map((e) => known.find((k) => k.key === e.key)?.id || null);
@@ -770,6 +776,18 @@ on("PUT", "teacher/students/:id/graded", "teacher", async ({ q, user, params, bo
   const st = await ownStudent(q, user.id, int(params.id));
   await q(`update students set graded = $2 where id = $1`, [st.id, !!body.graded]);
   return { ok: true, graded: !!body.graded };
+});
+// Remove a student from the class (or let them back). Nothing is deleted: records and grades stay.
+on("PUT", "teacher/students/:id/removed", "teacher", async ({ q, user, params, body }) => {
+  const st = await ownStudent(q, user.id, int(params.id));
+  await q(`update students set removed_at = ${body.removed ? "coalesce(removed_at, now())" : "null"} where id = $1`, [st.id]);
+  return { ok: true, removed: !!body.removed };
+});
+// Close the class to new students (or open it again).
+on("PUT", "teacher/classes/:id/closed", "teacher", async ({ q, user, params, body }) => {
+  const cls = await ownClass(q, user.id, int(params.id));
+  await q(`update classes set closed = $2 where id = $1`, [cls.id, !!body.closed]);
+  return { ok: true, closed: !!body.closed };
 });
 on("POST", "teacher/class-scores", "teacher", ({ q, tx, user, body }) => importScores(q, tx, user, body));
 on("DELETE", "teacher/class-exams/:id", "teacher", async ({ q, user, params }) => {
