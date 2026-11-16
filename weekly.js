@@ -290,7 +290,7 @@
     $("#w-pick")?.addEventListener("change", (e) => { tw.open = Number(e.target.value); render(); });
     $("#w-trial")?.addEventListener("click", async () => {
       try {
-        const r = await api("POST", "teacher/weekly/test", {});
+        const r = await api("POST", "teacher/weekly/test", { first: "Prueba", last: "Connie", pin: "2026" });
         tw.trial = `Listo. Salga de esta cuenta y entre como alumno: nombre <b>${esc(r.student.first)}</b>, apellido <b>${esc(r.student.last)}</b>, clave <b>${esc(r.student.pin)}</b>. El examen de prueba (lecciones 15–20) está abierto hasta ${esc(when(r.closesAt))}. Para volver a probar, entre otra vez aquí y toque el botón de nuevo.`;
         tw.open = r.examId;
       } catch (e) { tw.trial = esc(e.message); }
