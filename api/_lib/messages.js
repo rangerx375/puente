@@ -28,7 +28,7 @@ function away(monday) {
 function whatsappMonday(wk) {
   const e = wk.exam;
   const examPart = [
-    `El examen en línea ya está disponible en la app desde hoy a las 4:00 p.m., y tienen hasta el jueves a las 11:59 p.m. para hacerlo. 📝`,
+    `El examen en línea se abre hoy a las 4:00 p.m. en la app, y tienen hasta el jueves a las 11:59 p.m. para hacerlo. 📝`,
     "",
     "Recuerden:",
     "• Tienen 30 minutos desde que lo empiezan.",

@@ -260,7 +260,7 @@
   function teacherSection() {
     if (!tw.data) { setTimeout(loadTeacher, 0); return `<h3 class="subhead">Examen en línea</h3><p class="tiny">Cargando…</p>`; }
     const exams = tw.data.exams || [];
-    if (!exams.length) return `<h3 class="subhead">Examen en línea</h3><p class="tiny">Todavía no hay exámenes en línea. El primero (lecciones 21–25) se prepara el jueves 19 de noviembre y se abre el lunes 23 a las 4:00 p.m.</p>`;
+    if (!exams.length) return `<h3 class="subhead">Examen en línea</h3><p class="tiny">Todavía no hay exámenes en línea. El primero (lecciones 21–25) se prepara el jueves 19 de noviembre y se abre el lunes 23 a las 4:00 p.m.</p>${trialBox()}`;
     const ex = exams.find((e) => e.id === tw.open) || exams[0];
     const rows = ex.students.map((s) => `<tr>
         <td>${esc(s.name)}</td>
@@ -277,10 +277,26 @@
       <p class="tiny">«Reabrir» borra el intento y la nota de ese alumno y le da hasta la fecha que elija para hacerlo otra vez.
         <label>Hasta: <input type="date" id="w-until"></label></p>
       ${tw.msg ? `<p class="tiny" role="status">${esc(tw.msg)}</p>` : ""}
-      <div class="table-wrap"><table class="gradebook"><thead><tr><th>Alumno</th><th>Nota</th><th>Estado</th><th>Lecciones</th><th>Puntos quitados</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <div class="table-wrap"><table class="gradebook"><thead><tr><th>Alumno</th><th>Nota</th><th>Estado</th><th>Lecciones</th><th>Puntos quitados</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${trialBox()}`;
+  }
+  // Miss Connie's trial run: a pretend student and a test exam open now. It never counts in any grade.
+  function trialBox() {
+    return `<p class="tiny"><button class="btn secondary" id="w-trial">Probar el examen como alumno</button>
+      Crea un alumno de prueba y un examen de prueba abierto ahora (no cuenta para nadie). Puede repetirlo cuantas veces quiera.</p>
+      ${tw.trial ? `<p class="tiny" role="status">${tw.trial}</p>` : ""}`;
   }
   function bindTeacher() {
     $("#w-pick")?.addEventListener("change", (e) => { tw.open = Number(e.target.value); render(); });
+    $("#w-trial")?.addEventListener("click", async () => {
+      try {
+        const r = await api("POST", "teacher/weekly/test", {});
+        tw.trial = `Listo. Salga de esta cuenta y entre como alumno: nombre <b>${esc(r.student.first)}</b>, apellido <b>${esc(r.student.last)}</b>, clave <b>${esc(r.student.pin)}</b>. El examen de prueba (lecciones 15–20) está abierto hasta ${esc(when(r.closesAt))}. Para volver a probar, entre otra vez aquí y toque el botón de nuevo.`;
+        tw.open = r.examId;
+      } catch (e) { tw.trial = esc(e.message); }
+      tw.data = null;
+      render();
+    });
     $$("[data-reopen]").forEach((b) => b.addEventListener("click", async () => {
       const ex = (tw.data.exams || []).find((e) => e.id === tw.open) || tw.data.exams[0];
       try {

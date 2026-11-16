@@ -818,7 +818,7 @@ on("POST", "teacher/password", "teacher", async ({ q, user, body }) => {
   return { ok: true };
 });
 
-require("./weekly_app.js").register(on, { fail, int, classRoster, ownClass, ownStudent, auth, nameKey });
+const weeklyApp = require("./weekly_app.js").register(on, { fail, int, classRoster, ownClass, ownStudent, auth, nameKey });
 
 async function handle(req, res) {
   try {
@@ -859,4 +859,4 @@ async function handle(req, res) {
   }
 }
 
-module.exports = { handle, _test: { nameKey, cleanName, normPhone } };
+module.exports = { handle, _test: { nameKey, cleanName, normPhone, weekly: weeklyApp } };
