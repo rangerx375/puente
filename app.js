@@ -6,7 +6,7 @@ const PASS = () => window.PUENTE_PASS || 80;
 const G = window.PUENTE_GRADING;
 const BANK = window.PUENTE_BANK.build(window.PUENTE_BOOK);
 const SKILL_ES = { choose: "Elegir", fill: "Completar", translate: "Traducir", order: "Ordenar" };
-const STUDENT_VIEWS = ["toc", "how", "lesson", "practice", "insights"];
+const STUDENT_VIEWS = ["toc", "how", "lesson", "practice", "insights", "weekly"];
 const TEACHER_VIEWS = ["teacher", "student-detail", "curriculum"];
 const EXAM_TYPES = ["quiz", "review", "exam"];
 const EXERCISE_TYPES = ["fill", "choose", "translate", "order", "reading"];
@@ -76,6 +76,7 @@ async function api(method, path, body, opts = {}) {
   return data;
 }
 window.PUENTE_API = api;
+window.PUENTE_BANK_REF = (ref) => BANK.byRef.get(ref);
 
 function sessionEnded() {
   window.PUENTE_TEACHER?.reset();
@@ -305,6 +306,7 @@ function renderView() {
   if (state.view === "how") { root.innerHTML = shell(viewHow()); bindNav(); return; }
   if (state.view === "insights") { root.innerHTML = shell(viewInsights()); bindNav(); loadInsights(); return; }
   if (state.view === "practice") { root.innerHTML = shell(viewPractice()); bindPage(); loadPractice(); return; }
+  if (state.view === "weekly" && state.role === "student") { root.innerHTML = shell(window.PUENTE_WEEKLY.view()); bindNav(); window.PUENTE_WEEKLY.bind(); return; }
   if (TEACHER_VIEWS.includes(state.view)) {
     document.querySelector(".app")?.classList.add("wide");
     root.innerHTML = shell(window.PUENTE_TEACHER.view());
@@ -675,6 +677,7 @@ function viewToc() {
       <ol class="toc">${rows.map(({ L, i }) => tocRow(L, i)).join("")}</ol></details>`;
   }).join("");
   return `
+    ${window.PUENTE_WEEKLY ? window.PUENTE_WEEKLY.card() : ""}
     ${practicePanel()}
     <p class="kicker">${escapeHtml(book().subtitle)}</p>
     <h1>Contenido</h1>

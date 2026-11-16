@@ -711,3 +711,11 @@ img, svg, video { max-width: 100%; }
   .pager { max-width: 640px; margin-left: auto; margin-right: auto; }
   .practice-panel, .card { padding: 22px 26px; }
 }
+
+/* Online exam */
+.weekly-card { margin: 0 0 1.2rem; border-left: 4px solid var(--terra); }
+.weekly-timer { position: sticky; top: 0; z-index: 5; background: var(--paper, #fff); padding: .5rem .2rem; font: 600 1.15rem/1.2 "IBM Plex Mono", monospace; border-bottom: 1px solid var(--line, #ddd); }
+.weekly-timer.low { color: var(--terra); }
+.weekly-q .chip { margin-bottom: .4rem; }
+.weekly-q input.short { width: 9rem; }
+.weekly-q input.line { width: 100%; }

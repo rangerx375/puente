@@ -130,6 +130,51 @@ create table if not exists class_exam_scores (
 alter table students add column if not exists graded boolean not null default true;
 alter table students add column if not exists removed_at timestamptz;
 alter table classes add column if not exists closed boolean not null default false;
+alter table students add column if not exists tester boolean not null default false;
+alter table class_exams add column if not exists counts_zero boolean not null default false;
+alter table class_exams add column if not exists due timestamptz;
+create table if not exists weekly_exams (
+  id serial primary key,
+  class_id int not null references classes(id) on delete cascade,
+  monday text not null,
+  lessons_from int not null,
+  lessons_to int not null,
+  opens_at timestamptz not null,
+  closes_at timestamptz not null,
+  items jsonb not null,
+  test boolean not null default false,
+  class_exam_id int references class_exams(id) on delete set null,
+  closed_done boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists weekly_exams_real_idx on weekly_exams (class_id, monday) where not test;
+create table if not exists weekly_attempts (
+  id serial primary key,
+  exam_id int not null references weekly_exams(id) on delete cascade,
+  student_id int not null references students(id) on delete cascade,
+  token text not null,
+  started_at timestamptz not null default now(),
+  deadline timestamptz not null,
+  answers jsonb not null default '{}',
+  last_beat timestamptz,
+  submitted_at timestamptz,
+  reason text,
+  score numeric(5,1),
+  results jsonb,
+  breakdown jsonb,
+  unique (exam_id, student_id)
+);
+create table if not exists weekly_reopens (
+  exam_id int not null references weekly_exams(id) on delete cascade,
+  student_id int not null references students(id) on delete cascade,
+  until timestamptz not null,
+  primary key (exam_id, student_id)
+);
+create table if not exists cron_log (
+  job text primary key,
+  done_at timestamptz not null default now(),
+  info text
+);
 `;
 
 let ready = null;

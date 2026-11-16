@@ -270,6 +270,7 @@
           <tbody>${rows || `<tr><td colspan="10">Aún no hay alumnos. Aparecen al entrar con el código ${esc(cls.code)}.</td></tr>`}</tbody>
         </table>
       </div>
+      ${window.PUENTE_WEEKLY ? window.PUENTE_WEEKLY.teacherSection() : ""}
       ${scoresSection(o)}
       ${whatsappSection(o)}
       <h3 class="subhead">Tarea de clase</h3>
@@ -304,6 +305,7 @@
   }
 
   function bindDesk() {
+    window.PUENTE_WEEKLY?.bindTeacher();
     $("#class-pick")?.addEventListener("change", (e) => { t.overview = null; t.classId = Number(e.target.value); t.msg = ""; refresh(); });
     $$("[data-student]").forEach((b) => b.addEventListener("click", () => { openStudent(b.dataset.student); t.msg = ""; refresh(); window.scrollTo(0, 0); }));
     $("#save-assign")?.addEventListener("click", () => run(async () => {

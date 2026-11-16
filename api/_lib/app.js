@@ -171,7 +171,7 @@ async function studentLogin(q, body, res) {
 // Every in-class exam of a class, and each student's scores on them.
 async function classExams(q, classId) {
   const [{ rows: exams }, { rows: scores }] = await Promise.all([
-    q(`select id, exam_date, name, kind, key, created_at from class_exams where class_id = $1 order by created_at, id`, [classId]),
+    q(`select id, exam_date, name, kind, key, counts_zero, due, created_at from class_exams where class_id = $1 order by created_at, id`, [classId]),
     q(`select x.exam_id, x.student_id, x.percent::float as percent from class_exam_scores x
          join class_exams e on e.id = x.exam_id where e.class_id = $1`, [classId])
   ]);
@@ -465,7 +465,7 @@ const sumTime = (state) => Object.values(isObj(state?.timeMs) ? state.timeMs : {
 
 async function classRoster(q, classId) {
   const [{ rows: students }, { rows: attempts }, { rows: responses }, { rows: sets }, { rows: homework }, cx] = await Promise.all([
-    q(`select s.id, s.first, s.last, s.phone, s.graded, s.last_seen, s.created_at, s.removed_at, p.state from students s left join progress p on p.student_id = s.id
+    q(`select s.id, s.first, s.last, s.phone, s.graded, s.tester, s.last_seen, s.created_at, s.removed_at, p.state from students s left join progress p on p.student_id = s.id
         where s.class_id = $1 order by lower(s.last), lower(s.first)`, [classId]),
     q(`select a.student_id, a.source, a.lesson_id, a.percent, a.n_right, a.n_total, a.passed, a.created_at
          from attempts a join students s on s.id = a.student_id
@@ -504,7 +504,7 @@ async function classRoster(q, classId) {
       tracking: tracked.slice(0, 3).map((t) => ({ topic: t.topic, title: t.title })),
       trackingCount: tracked.length,
       practiceOpen: counts.open || 0, practiceDone: counts.done || 0,
-      graded: s.graded !== false,
+      graded: s.graded !== false, tester: !!s.tester,
       grade: s.graded === false ? null : G.classGrade(scores, examsOf(cx, s.id), cx.exams),
       scores
     };
@@ -818,6 +818,8 @@ on("POST", "teacher/password", "teacher", async ({ q, user, body }) => {
   return { ok: true };
 });
 
+require("./weekly_app.js").register(on, { fail, int, classRoster, ownClass, ownStudent, auth, nameKey });
+
 async function handle(req, res) {
   try {
     const url = new URL(req.url, "http://x");
@@ -839,6 +841,12 @@ async function handle(req, res) {
     }
     const body = req.method === "GET" ? {} : await readBody(req).catch((e) => { if (e instanceof HttpError) throw e; fail(400, "JSON inválido."); });
     const out = await route.fn({ q, tx, req, res, user, body, params, query: url.searchParams });
+    if (out && typeof out.__html === "string") {
+      res.statusCode = 200;
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.end(out.__html);
+    }
     if (typeof out === "string") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="puente-notas.csv"');

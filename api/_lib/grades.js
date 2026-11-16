@@ -117,10 +117,14 @@ const round1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 function classGrade(lessonScores, exams, given = []) {
   const bests = Object.values(lessonScores || {}).map((v) => v.best).filter((v) => typeof v === "number");
   const scoreOf = (e) => exams.find((x) => x.exam_id === e.id);
-  const missing = given.filter((e) => { const x = scoreOf(e); return !x || Number(x.percent) === 0; })
+  // Online exams (counts_zero): a 0 is a real score, and one still open isn't missing yet.
+  const now = Date.now();
+  const notDue = (e) => e.due && new Date(e.due).getTime() > now;
+  const zeroCounts = (x) => given.find((e) => e.id === x.exam_id)?.counts_zero;
+  const missing = given.filter((e) => { const x = scoreOf(e); return x ? Number(x.percent) === 0 && !e.counts_zero : !notDue(e); })
     .map((e) => ({ date: e.exam_date ?? e.date, name: e.name, kind: e.kind }))
     .map((m) => ({ ...m, label: missingLabel(m) }));
-  const taken = exams.filter((x) => Number(x.percent) !== 0 || !given.length);
+  const taken = exams.filter((x) => Number(x.percent) !== 0 || !given.length || zeroCounts(x));
   const short = (kind) => missing.some((m) => m.kind === kind);
   const parts = {
     lessons: avg(bests),
