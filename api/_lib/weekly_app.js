@@ -270,7 +270,12 @@ function register(on, { fail, int, classRoster, ownClass, ownStudent, auth, name
     const wk = S.week(monday);
     const nextWk = S.week(S.addDays(monday, 7));
     const done = [];
-    const run = async (job, fn) => { const j = await once(q, job, fn); if (j) done.push(j); };
+    const errors = [];
+    // One failing job (say, mail down) never stops the others; it's retried next tick and reported to the VM.
+    const run = async (job, fn) => {
+      try { const j = await once(q, job, fn); if (j) done.push(j); }
+      catch (e) { errors.push(`${job}: ${e.message}`); console.error("puente cron", job, e); }
+    };
     const roster = async () => classList((await classRoster(q, classId)).roster);
 
     // Thursday before an online exam (8 a.m. on): draw it and send Miss Connie a copy to print.
@@ -361,8 +366,11 @@ function register(on, { fail, int, classRoster, ownClass, ownStudent, auth, name
         return names.join(", ");
       });
     }
-    return { done, panama: p };
+    return { done, errors, panama: p };
   }
+
+  // Sends a test email to Chuck (not Miss Connie) to check the mail setup.
+  on("POST", "teacher/mail-test", "teacher", async () => ({ ok: true, id: await mail.toChuck("Puente mail test", "The Puente app can send email.") }));
 
   on("GET", "cron/tick", null, async ({ q, query }) => {
     if (!process.env.CRON_KEY || query.get("key") !== process.env.CRON_KEY) fail(401, "No.");
