@@ -26,7 +26,11 @@
   const expand = (t) => CONTRACTIONS.reduce((x, [re, to]) => x.replace(re, to), t);
 
   // Accents, case, apostrophes, punctuation and contractions never decide whether an English answer is right.
-  const base = (s, name) => withName(s, name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  // Phone keyboards also type other apostrophe marks (‘ ` ´ ʼ) and sometimes a space beside one
+  // ("I’ m", "isn ’t"); fold those to a plain apostrophe glued to its contraction ending.
+  const APOS = /[‘’`´ʼ′]/g;
+  const glue = (t) => t.replace(APOS, "'").replace(/([a-z])\s*'\s*(m|re|s|ll|ve|d|t)\b/g, "$1'$2");
+  const base = (s, name) => glue(withName(s, name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
   const tidy = (t) => t.replace(/['’]/g, "").replace(/[-–—/]/g, " ").replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
   // Phone keyboards often drop the apostrophe; these never mean anything else, so expand them too.
   const BARE = { im: "i am", youre: "you are", theyre: "they are", isnt: "is not", arent: "are not", wasnt: "was not",

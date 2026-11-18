@@ -320,6 +320,10 @@ test("a contraction and its full form are both right", () => {
   assert.ok(grading.mark({ answers: ["What is your name?"] }, "What's your name?").ok);
   assert.ok(grading.mark({ answers: ["She is not here."] }, "She isn't here").ok);
   assert.ok(!grading.mark({ answers: ["She is here."] }, "She isn't here").ok);
+  // phone keyboards: a space beside the apostrophe, or a different apostrophe mark
+  for (const a of ["I’ m not at home", "I ’m not at home", "I`m not at home", "I‘m not at home"])
+    assert.ok(grading.mark({ answers: ["I am not at home"] }, a).ok, a);
+  assert.ok(grading.mark({ answers: ["He is not home"] }, "He isn’ t home").ok);
 });
 
 test("announcements: the teacher posts, students see them, the teacher removes them", async () => {
