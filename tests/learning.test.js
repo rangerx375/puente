@@ -148,3 +148,14 @@ test("WhatsApp numbers: Panama and US numbers need no country code, and neither 
   assert.equal(normPhone("612 3456"), "5076123456");
   assert.equal(normPhone("61234"), null);
 });
+
+test("short-answer items also accept the quoted question written before the answer", () => {
+  const it = { kind: "translate", es: "Sí. (Is Grace here?)", answers: ["Yes, she is", "Yes she is"] };
+  assert.ok(grading.mark(it, "is Grace here? yes she is", "Rosa").ok);
+  assert.ok(grading.mark(it, "Yes, she is.", "Rosa").ok);
+  assert.ok(!grading.mark(it, "is Grace here?", "Rosa").ok);
+  assert.ok(!grading.mark(it, "is Grace here? no she isn't", "Rosa").ok);
+  const neg = { kind: "translate", es: "No. (Is Mateo sick?)", answers: ["No, he isn't", "No, he is not"] };
+  assert.ok(grading.mark(neg, "is Mateo sick? No he isn’t", "Rosa").ok);
+  assert.ok(!grading.mark({ kind: "translate", es: "¿Es él pastor?", answers: ["Is he a pastor"] }, "is He Pastor?", "Rosa").ok);
+});

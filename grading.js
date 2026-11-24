@@ -55,6 +55,10 @@
     return withName(opts[0] || "", name);
   }
 
+  // English questions quoted in parentheses in the prompt, e.g. "No. (Is Mateo sick?)".
+  const echoes = (it, name) => [...`${it.es ?? ""} ${it.prompt ?? ""}`.matchAll(/\(([^()]*\?)\s*\)/g)]
+    .map((m) => norm(m[1], name)).filter(Boolean);
+
   function mark(it, answer, name, pageType) {
     const kind = itemKind(it, pageType);
     const key = keyText(it, kind, name);
@@ -66,7 +70,12 @@
     const opts = kind === "translate"
       ? (it.answers || [])
       : (it.answers && it.answers.length ? it.answers : [it.answer]);
-    return { ok: opts.some((a) => same(answer, a, name)), key, kind };
+    if (opts.some((a) => same(answer, a, name))) return { ok: true, key, kind };
+    // "Sí. (Is Grace here?)" asks for the short answer only, but writing the question first and then
+    // the right answer ("Is Grace here? Yes, she is.") is still right (Rosa, 2026-11-23).
+    const given = norm(answer, name);
+    const rest = echoes(it, name).filter((e) => given.startsWith(e + " ")).map((e) => given.slice(e.length + 1));
+    return { ok: rest.some((r) => opts.some((a) => same(r, a, name))), key, kind };
   }
 
   return { SKILLS, norm, same, itemKind, keyText, mark, withName };

@@ -15,8 +15,20 @@
     w.loading = true;
     try { w.status = await api("GET", "weekly"); }
     catch (e) { w.status = { state: "error", message: e.message }; }
-    finally { w.loading = false; if (typeof render === "function" && ["toc", "weekly"].includes(state.view)) render(); }
+    finally {
+      w.loading = false; w.at = Date.now();
+      // A page left open from before Monday 4:00 p.m. opens the exam by itself when the time comes.
+      clearTimeout(w.openTimer);
+      const opens = w.status?.state === "not_open" && w.status.exam?.opensAt ? new Date(w.status.exam.opensAt) - Date.now() : 0;
+      if (opens > 0 && opens < 7 * 86400000) w.openTimer = setTimeout(loadStatus, opens + 2000);
+      if (typeof render === "function" && ["toc", "weekly"].includes(state.view)) render();
+    }
   }
+  // The card used to load once per visit, so a student who passed the missing lesson, or who had the
+  // app open before 4:00 p.m., kept seeing the old message (Rosa, 2026-11-23). Refresh it when stale.
+  const STALE_MS = 30000;
+  const freshen = () => { if (!w.loading && !w.run && Date.now() - (w.at || 0) > STALE_MS) setTimeout(loadStatus, 0); };
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.role === "student") freshen(); });
   const pct = (n) => `${String(n).replace(/\.0$/, "")}%`;
   const MISTAKE = "Si crees que hay un error, habla con Miss Connie.";
 
@@ -25,6 +37,7 @@
   function card() {
     if (state.role !== "student") return "";
     if (!w.status) { setTimeout(loadStatus, 0); return ""; }
+    freshen();
     const s = w.status;
     if (s.state === "none" || s.state === "error") {
       return s.next ? `<div class="rule-box weekly-card"><p class="kicker">Examen en línea</p>
